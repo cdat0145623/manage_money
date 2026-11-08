@@ -85,3 +85,27 @@ test("password validation explains mismatched or short passwords", () => {
     assert.equal(passwordValidationError("long-enough", "different"), "Mật khẩu xác nhận không khớp.");
     assert.equal(passwordValidationError("long-enough", "long-enough"), "");
 });
+
+test("auth errors are localized and actionable", async () => {
+    const invalid = fakeAuth({
+        signInWithPassword: async () => ({
+            data: { user: null },
+            error: { message: "Invalid login credentials" },
+        }),
+    });
+    await assert.rejects(
+        signInWithEmail(invalid.auth, "google@example.com", "wrong"),
+        /Email hoặc mật khẩu không đúng.*Google.*đặt mật khẩu/,
+    );
+
+    const expired = fakeAuth({
+        updateUser: async () => ({
+            data: { user: null },
+            error: { message: "Auth session missing" },
+        }),
+    });
+    await assert.rejects(
+        updatePassword(expired.auth, "new-secret123"),
+        /Liên kết khôi phục đã hết hạn hoặc không hợp lệ/,
+    );
+});

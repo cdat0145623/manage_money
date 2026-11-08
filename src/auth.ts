@@ -2,8 +2,23 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 export type AuthClient = SupabaseClient["auth"];
 
+export function authErrorMessage(message: string): string {
+    const normalized = message.toLowerCase();
+    if (normalized.includes("invalid login credentials"))
+        return "Email hoặc mật khẩu không đúng. Nếu tài khoản tạo bằng Google, hãy đặt mật khẩu trước.";
+    if (normalized.includes("email not confirmed"))
+        return "Email chưa được xác thực. Hãy kiểm tra hộp thư rồi thử lại.";
+    if (normalized.includes("user already registered"))
+        return "Email này đã được đăng ký. Hãy đăng nhập hoặc dùng Quên mật khẩu.";
+    if (normalized.includes("auth session missing"))
+        return "Liên kết khôi phục đã hết hạn hoặc không hợp lệ. Hãy yêu cầu liên kết mới.";
+    if (normalized.includes("password") && normalized.includes("different"))
+        return "Mật khẩu mới phải khác mật khẩu hiện tại.";
+    return "Không thể xử lý yêu cầu xác thực. Vui lòng thử lại.";
+}
+
 function check(error: { message: string } | null): void {
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(authErrorMessage(error.message));
 }
 
 export function passwordValidationError(password: string, confirmation: string) {
