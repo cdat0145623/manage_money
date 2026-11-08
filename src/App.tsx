@@ -6,7 +6,6 @@ import {
     CircleDollarSign,
     FileChartColumn,
     LayoutDashboard,
-    LogOut,
     Plus,
     Repeat2,
     Settings2,
@@ -14,12 +13,9 @@ import {
     WalletCards,
 } from "lucide-react";
 import {
-    configured,
     getSession,
     loadData,
     localTest,
-    login,
-    logout,
     mutate,
 } from "./api.ts";
 import {
@@ -80,93 +76,6 @@ function useRoute() {
     ] as const;
 }
 
-function Login({ onLogin }: { onLogin: () => Promise<void> }) {
-    const [email, setEmail] = useState(""),
-        [password, setPassword] = useState(""),
-        [busy, setBusy] = useState(false),
-        [error, setError] = useState("");
-    async function submit(e: React.FormEvent) {
-        e.preventDefault();
-        setBusy(true);
-        setError("");
-        try {
-            await login(email, password);
-            await onLogin();
-        } catch (err) {
-            setError((err as Error).message);
-        } finally {
-            setBusy(false);
-        }
-    }
-    return (
-        <main className="auth-shell">
-            <section className="auth-card">
-                <div className="brand-mark">
-                    <CircleDollarSign size={30} />
-                </div>
-                <p className="eyebrow">THU CHI</p>
-                <h1>Mỗi khoản chi, một quyết định rõ ràng.</h1>
-                <p className="auth-copy">
-                    Theo dõi ngân sách thực chi và chi phí phân bổ trong cùng
-                    một nơi.
-                </p>
-                <form onSubmit={submit} className="form-body">
-                    {localTest && (
-                        <input
-                            type="text"
-                            name="username"
-                            autoComplete="username"
-                            value="local-test"
-                            readOnly
-                            hidden
-                        />
-                    )}
-                    {!localTest && (
-                        <label>
-                            Email
-                            <input
-                                required
-                                type="email"
-                                autoComplete="username"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="you@example.com"
-                            />
-                        </label>
-                    )}
-                    <label>
-                        Mật khẩu
-                        <input
-                            required
-                            type="password"
-                            autoComplete="current-password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Nhập mật khẩu"
-                        />
-                    </label>
-                    {localTest && (
-                        <p className="notice">
-                            Môi trường test local. Mật khẩu nằm trong{" "}
-                            <code>output/local-test-password.txt</code>.
-                        </p>
-                    )}
-                    {error && (
-                        <p className="error" role="alert">
-                            {error}
-                        </p>
-                    )}
-                    <button className="button primary wide" disabled={busy}>
-                        {busy ? "Đang đăng nhập…" : "Đăng nhập"}
-                    </button>
-                </form>
-                <p className="auth-foot">
-                    Dữ liệu riêng tư, chỉ hiển thị sau khi xác thực.
-                </p>
-            </section>
-        </main>
-    );
-}
 function MonthPicker({
     month,
     onChange,
@@ -1225,7 +1134,6 @@ function BudgetsPage({
 
 export default function App() {
     const [ready, setReady] = useState(false),
-        [authed, setAuthed] = useState(false),
         [data, setData] = useState<Data>(EMPTY),
         [error, setError] = useState("");
     const [page, setPage] = useRoute();
@@ -1236,14 +1144,11 @@ export default function App() {
     }
     async function start() {
         try {
-            const ok = await getSession();
-            setAuthed(ok);
-            if (ok) {
-                await mutate("sync", {}, crypto.randomUUID()).catch(
-                    () => undefined,
-                );
-                await refresh();
-            }
+            await getSession();
+            await mutate("sync", {}, crypto.randomUUID()).catch(
+                () => undefined,
+            );
+            await refresh();
         } catch (e) {
             setError((e as Error).message);
         } finally {
@@ -1262,20 +1167,16 @@ export default function App() {
                 <p>Đang mở sổ chi tiêu…</p>
             </main>
         );
-    if (!authed)
+    if (error)
         return (
-            <>
-                {error && <div className="fatal-error">{error}</div>}
-                <Login
-                    onLogin={async () => {
-                        setAuthed(true);
-                        await mutate("sync", {}, crypto.randomUUID()).catch(
-                            () => undefined,
-                        );
-                        await refresh();
-                    }}
-                />
-            </>
+            <main className="loading-screen">
+                <div className="brand-mark">
+                    <CircleDollarSign size={30} />
+                </div>
+                <p className="error" role="alert">
+                    {error}
+                </p>
+            </main>
         );
     const goExpenses = (filter: string) => {
         setInitialFilter(filter);
@@ -1312,16 +1213,6 @@ export default function App() {
                         <span className="live-dot" />{" "}
                         {localTest ? "Local test" : "Supabase"}
                     </div>
-                    <button
-                        className="logout"
-                        onClick={async () => {
-                            await logout();
-                            setAuthed(false);
-                        }}
-                    >
-                        <LogOut size={17} />
-                        Đăng xuất
-                    </button>
                 </div>
             </aside>
             <main className="main-content">
@@ -1334,16 +1225,6 @@ export default function App() {
                             thu<span>chi</span>
                         </span>
                     </div>
-                    <button
-                        className="icon-button"
-                        aria-label="Đăng xuất"
-                        onClick={async () => {
-                            await logout();
-                            setAuthed(false);
-                        }}
-                    >
-                        <LogOut size={18} />
-                    </button>
                 </div>
                 {page === "overview" && (
                     <Overview

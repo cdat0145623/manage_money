@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import type { Data } from './domain.ts';
 export const localTest = import.meta.env.VITE_LOCAL_TEST === 'true';
 const url=import.meta.env.VITE_SUPABASE_URL, key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-export const configured=localTest || !!(url && key);
 export const supabase=!localTest && url && key ? createClient(url,key) : null;
 async function local(path:string,body?:unknown) {
  const response=await fetch(`/local-api/${path}`,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
@@ -10,15 +9,14 @@ async function local(path:string,body?:unknown) {
 }
 export async function getSession():Promise<boolean> {
  if(localTest)return (await local('session')).authenticated;
- if(!supabase)return false;
- const {data,error}=await supabase.auth.getSession();if(error)throw error;return !!data.session;
+ if(!supabase)throw new Error('Chưa cấu hình Supabase.');
+ const {data,error}=await supabase.auth.getSession();
+ if(error)throw error;
+ if(data.session)return true;
+ const anonymous=await supabase.auth.signInAnonymously();
+ if(anonymous.error)throw new Error('Chưa bật Anonymous Sign-Ins trong Supabase.');
+ return !!anonymous.data.session;
 }
-export async function login(email:string,password:string) {
- if(localTest){await local('login',{password});return;}
- if(!supabase)throw new Error('Chưa cấu hình kết nối.');
- const {error}=await supabase.auth.signInWithPassword({email,password});if(error)throw new Error('Không đăng nhập được. Kiểm tra email, mật khẩu và kết nối.');
-}
-export async function logout(){if(localTest)await local('logout',{});else {const result=await supabase?.auth.signOut();if(result?.error)throw result.error;}}
 export async function loadData():Promise<Data> {
  if(localTest)return local('data');
  if(!supabase)throw new Error('Chưa cấu hình Supabase.');
