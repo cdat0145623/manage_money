@@ -1,5 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Data } from './domain.ts';
+import type { User } from '@supabase/supabase-js';
+import {
+    requestPasswordReset,
+    signInWithEmail,
+    signInWithGoogle,
+    signOut as signOutWithSupabase,
+    signUpWithEmail,
+    updatePassword,
+} from './auth.ts';
 export const localTest = import.meta.env.VITE_LOCAL_TEST === 'true';
 const url=import.meta.env.VITE_SUPABASE_URL, key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 export const supabase=!localTest && url && key ? createClient(url,key) : null;
@@ -12,10 +21,49 @@ export async function getSession():Promise<boolean> {
  if(!supabase)throw new Error('Chưa cấu hình Supabase.');
  const {data,error}=await supabase.auth.getSession();
  if(error)throw error;
- if(data.session)return true;
- const anonymous=await supabase.auth.signInAnonymously();
- if(anonymous.error)throw new Error('Chưa bật Anonymous Sign-Ins trong Supabase.');
- return !!anonymous.data.session;
+ return !!data.session;
+}
+export async function getUser():Promise<User|null> {
+ if(localTest){return (await local('session')).authenticated ? ({id:'local-test',email:'local@test'} as User) : null;}
+ if(!supabase)throw new Error('Chưa cấu hình Supabase.');
+ const {data,error}=await supabase.auth.getUser();
+ if(error)throw error;
+ return data.user;
+}
+export function subscribeToAuth(callback:(user:User|null)=>void):()=>void {
+ if(localTest || !supabase)return ()=>undefined;
+ const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>callback(session?.user ?? null));
+ return ()=>subscription.unsubscribe();
+}
+export async function login(email:string,password:string):Promise<void> {
+ if(localTest){await local('login',{password});return;}
+ if(!supabase)throw new Error('Chưa cấu hình Supabase.');
+ await signInWithEmail(supabase.auth,email,password);
+}
+export async function register(email:string,password:string,redirectTo:string) {
+ if(localTest)throw new Error('Đăng ký tài khoản chỉ có trên Supabase.');
+ if(!supabase)throw new Error('Chưa cấu hình Supabase.');
+ return signUpWithEmail(supabase.auth,email,password,redirectTo);
+}
+export async function loginWithGoogle(redirectTo:string):Promise<void> {
+ if(localTest)throw new Error('Đăng nhập Google chỉ có trên Supabase.');
+ if(!supabase)throw new Error('Chưa cấu hình Supabase.');
+ await signInWithGoogle(supabase.auth,redirectTo);
+}
+export async function resetPassword(email:string,redirectTo:string):Promise<void> {
+ if(localTest)throw new Error('Khôi phục mật khẩu chỉ có trên Supabase.');
+ if(!supabase)throw new Error('Chưa cấu hình Supabase.');
+ await requestPasswordReset(supabase.auth,email,redirectTo);
+}
+export async function setPassword(password:string):Promise<void> {
+ if(localTest)throw new Error('Đặt mật khẩu chỉ có trên Supabase.');
+ if(!supabase)throw new Error('Chưa cấu hình Supabase.');
+ await updatePassword(supabase.auth,password);
+}
+export async function logout():Promise<void> {
+ if(localTest){await local('logout',{});return;}
+ if(!supabase)throw new Error('Chưa cấu hình Supabase.');
+ await signOutWithSupabase(supabase.auth);
 }
 export async function loadData():Promise<Data> {
  if(localTest)return local('data');

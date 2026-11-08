@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import type { User } from "@supabase/supabase-js";
 import {
     BarChart3,
     ChevronLeft,
     ChevronRight,
     CircleDollarSign,
     FileChartColumn,
+    Globe2,
+    KeyRound,
     LayoutDashboard,
+    LockKeyhole,
+    LogOut,
+    Mail,
     Plus,
     Repeat2,
     Settings2,
@@ -13,11 +20,20 @@ import {
     WalletCards,
 } from "lucide-react";
 import {
+    getUser,
     getSession,
     loadData,
     localTest,
+    login,
+    loginWithGoogle,
     mutate,
+    logout,
+    register,
+    resetPassword,
+    setPassword,
+    subscribeToAuth,
 } from "./api.ts";
+import { passwordValidationError } from "./auth.ts";
 import {
     CHANNELS,
     DEFAULT_BUDGETS,
@@ -1132,31 +1148,320 @@ function BudgetsPage({
     );
 }
 
+type AuthMode = "signin" | "signup" | "forgot" | "reset";
+
+function appUrl(query?: string) {
+    const url = new URL(window.location.href);
+    url.hash = "";
+    url.search = query ? `?${query}` : "";
+    return url.toString();
+}
+
+function AuthScreen({
+    initialMode,
+    onAuthenticated,
+}: {
+    initialMode: AuthMode;
+    onAuthenticated: () => Promise<void>;
+}) {
+    const [mode, setMode] = useState<AuthMode>(initialMode);
+    const [email, setEmail] = useState(localTest ? "local@test" : "");
+    const [password, setPasswordValue] = useState("");
+    const [confirmation, setConfirmation] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const [notice, setNotice] = useState("");
+    const title =
+        mode === "signup"
+            ? "Tạo tài khoản"
+            : mode === "forgot"
+              ? "Lấy lại mật khẩu"
+              : mode === "reset"
+                ? "Đặt mật khẩu mới"
+                : "Đăng nhập";
+
+    function changeMode(next: AuthMode) {
+        setMode(next);
+        setError("");
+        setNotice("");
+        setPasswordValue("");
+        setConfirmation("");
+        if (next !== "reset") history.replaceState({}, "", appUrl());
+    }
+
+    async function submit(e: FormEvent) {
+        e.preventDefault();
+        setError("");
+        setNotice("");
+        if (mode !== "forgot" && mode !== "signin") {
+            const passwordError = passwordValidationError(
+                password,
+                confirmation,
+            );
+            if (passwordError) {
+                setError(passwordError);
+                return;
+            }
+        }
+        setBusy(true);
+        try {
+            if (mode === "signin") {
+                await login(email.trim(), password);
+                await onAuthenticated();
+            } else if (mode === "signup") {
+                const result = await register(
+                    email.trim(),
+                    password,
+                    appUrl(),
+                );
+                if (result.session) await onAuthenticated();
+                else
+                    setNotice(
+                        "Đã tạo tài khoản. Hãy kiểm tra email để xác thực trước khi đăng nhập.",
+                    );
+            } else if (mode === "forgot") {
+                await resetPassword(email.trim(), appUrl("auth=reset"));
+                setNotice(
+                    "Nếu email tồn tại, hướng dẫn khôi phục đã được gửi. Hãy kiểm tra hộp thư.",
+                );
+            } else {
+                await setPassword(password);
+                history.replaceState({}, "", appUrl());
+                await onAuthenticated();
+            }
+        } catch (e) {
+            setError((e as Error).message);
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    return (
+        <main className="auth-screen">
+            <section className="auth-card" aria-labelledby="auth-title">
+                <div className="auth-brand">
+                    <span className="brand-mark">
+                        <CircleDollarSign size={30} />
+                    </span>
+                    <p className="eyebrow">THU CHI</p>
+                </div>
+                <h1 id="auth-title">{title}</h1>
+                <p className="auth-description">
+                    {mode === "signup"
+                        ? "Tạo sổ chi tiêu riêng của bạn."
+                        : mode === "forgot"
+                          ? "Nhập email đã đăng ký để nhận liên kết khôi phục."
+                          : mode === "reset"
+                            ? "Chọn mật khẩu mới cho tài khoản của bạn."
+                            : "Theo dõi ngân sách thực chi và chi phí phân bổ trong cùng một nơi."}
+                </p>
+                <form className="auth-form" onSubmit={(e) => void submit(e)}>
+                    {mode !== "reset" && (
+                        <label>
+                            <span>Email</span>
+                            <div className="auth-input">
+                                <Mail size={18} aria-hidden="true" />
+                                <input
+                                    required
+                                    type="email"
+                                    autoComplete="email"
+                                    value={email}
+                                    placeholder="you@example.com"
+                                    onChange={(e) => setEmail(e.target.value)}
+                                />
+                            </div>
+                        </label>
+                    )}
+                    {mode !== "forgot" && (
+                        <label>
+                            <span>{mode === "reset" ? "Mật khẩu mới" : "Mật khẩu"}</span>
+                            <div className="auth-input">
+                                <LockKeyhole size={18} aria-hidden="true" />
+                                <input
+                                    required
+                                    type="password"
+                                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                                    minLength={8}
+                                    value={password}
+                                    placeholder="Ít nhất 8 ký tự"
+                                    onChange={(e) => setPasswordValue(e.target.value)}
+                                />
+                            </div>
+                        </label>
+                    )}
+                    {(mode === "signup" || mode === "reset") && (
+                        <label>
+                            <span>Xác nhận mật khẩu</span>
+                            <div className="auth-input">
+                                <LockKeyhole size={18} aria-hidden="true" />
+                                <input
+                                    required
+                                    type="password"
+                                    autoComplete="new-password"
+                                    minLength={8}
+                                    value={confirmation}
+                                    placeholder="Nhập lại mật khẩu"
+                                    onChange={(e) => setConfirmation(e.target.value)}
+                                />
+                            </div>
+                        </label>
+                    )}
+                    {error && <p className="error" role="alert">{error}</p>}
+                    {notice && <p className="auth-notice" role="status">{notice}</p>}
+                    <button className="button primary auth-submit" disabled={busy} type="submit">
+                        {busy ? "Đang xử lý…" : mode === "signup" ? "Tạo tài khoản" : mode === "forgot" ? "Gửi liên kết" : mode === "reset" ? "Lưu mật khẩu" : "Đăng nhập"}
+                    </button>
+                </form>
+                {(mode === "signin" || mode === "signup") && !localTest && (
+                    <>
+                        <div className="auth-divider"><span>hoặc</span></div>
+                        <button
+                            className="button auth-google"
+                            type="button"
+                            onClick={() => {
+                                setError("");
+                                void loginWithGoogle(appUrl()).catch((e) =>
+                                    setError((e as Error).message),
+                                );
+                            }}
+                        >
+                            <Globe2 size={18} />
+                            Tiếp tục với Google
+                        </button>
+                    </>
+                )}
+                <div className="auth-links">
+                    {mode === "signin" && (
+                        <>
+                            <button type="button" onClick={() => changeMode("forgot")}>Quên mật khẩu?</button>
+                            <button type="button" onClick={() => changeMode("signup")}>Tạo tài khoản mới</button>
+                        </>
+                    )}
+                    {mode === "signup" && <button type="button" onClick={() => changeMode("signin")}>Đã có tài khoản? Đăng nhập</button>}
+                    {mode === "forgot" && <button type="button" onClick={() => changeMode("signin")}>Quay lại đăng nhập</button>}
+                    {mode === "reset" && <button type="button" onClick={() => changeMode("signin")}>Hủy</button>}
+                </div>
+                {localTest && <p className="auth-footnote">Local test dùng mật khẩu trong output/local-test-password.txt.</p>}
+            </section>
+        </main>
+    );
+}
+
+function SetPasswordDialog({
+    onClose,
+    onDone,
+}: {
+    onClose: () => void;
+    onDone: () => Promise<void>;
+}) {
+    const [password, setPasswordValue] = useState("");
+    const [confirmation, setConfirmation] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    async function submit(e: FormEvent) {
+        e.preventDefault();
+        const validation = passwordValidationError(password, confirmation);
+        if (validation) return setError(validation);
+        setBusy(true);
+        setError("");
+        try {
+            await setPassword(password);
+            await onDone();
+        } catch (e) {
+            setError((e as Error).message);
+        } finally {
+            setBusy(false);
+        }
+    }
+    return (
+        <Modal title="Đặt mật khẩu" subtitle="Dùng email tài khoản để đăng nhập lần sau." onClose={onClose}>
+            <form className="form-body" onSubmit={(e) => void submit(e)}>
+                <label>
+                    Mật khẩu mới
+                    <input required minLength={8} type="password" value={password} onChange={(e) => setPasswordValue(e.target.value)} />
+                </label>
+                <label>
+                    Xác nhận mật khẩu
+                    <input required minLength={8} type="password" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
+                </label>
+                <FormEnd busy={busy} error={error} label="Lưu mật khẩu" />
+            </form>
+        </Modal>
+    );
+}
+
 export default function App() {
     const [ready, setReady] = useState(false),
         [data, setData] = useState<Data>(EMPTY),
         [error, setError] = useState("");
+    const recoveryFlow = new URLSearchParams(window.location.search).get("auth") === "reset";
+    const [authenticated, setAuthenticated] = useState(false);
+    const [user, setUser] = useState<User | null>(null);
+    const [authMode, setAuthMode] = useState<AuthMode>(recoveryFlow ? "reset" : "signin");
+    const [passwordOpen, setPasswordOpen] = useState(false);
     const [page, setPage] = useRoute();
     const [month, setMonth] = useState(today().slice(0, 7));
     const [initialFilter, setInitialFilter] = useState<string>();
     async function refresh() {
         setData(await loadData());
     }
-    async function start() {
+    async function startSession(activeUser?: User | null) {
         try {
-            await getSession();
+            const current = activeUser ?? (await getUser());
+            if (!current) {
+                setAuthenticated(false);
+                setUser(null);
+                return;
+            }
             await mutate("sync", {}, crypto.randomUUID()).catch(
                 () => undefined,
             );
             await refresh();
+            setUser(current);
+            setAuthenticated(true);
+            setError("");
         } catch (e) {
             setError((e as Error).message);
         } finally {
             setReady(true);
         }
     }
+    async function start() {
+        try {
+            const hasSession = await getSession();
+            if (hasSession && !recoveryFlow) await startSession();
+        } catch (e) {
+            setError((e as Error).message);
+            setReady(true);
+        } finally {
+            setReady(true);
+        }
+    }
+    async function handleLogout() {
+        try {
+            await logout();
+            setAuthenticated(false);
+            setUser(null);
+            setData(EMPTY);
+            setAuthMode("signin");
+        } catch (e) {
+            setError((e as Error).message);
+        }
+    }
     useEffect(() => {
+        const stop = subscribeToAuth((activeUser) => {
+            if (!activeUser) {
+                setAuthenticated(false);
+                setUser(null);
+                setData(EMPTY);
+                setAuthMode("signin");
+                setReady(true);
+            } else if (!recoveryFlow) {
+                void startSession(activeUser);
+            }
+        });
         void start();
+        return stop;
     }, []);
     if (!ready)
         return (
@@ -1177,6 +1482,13 @@ export default function App() {
                     {error}
                 </p>
             </main>
+        );
+    if (!authenticated)
+        return (
+            <AuthScreen
+                initialMode={authMode}
+                onAuthenticated={() => startSession()}
+            />
         );
     const goExpenses = (filter: string) => {
         setInitialFilter(filter);
@@ -1213,6 +1525,18 @@ export default function App() {
                         <span className="live-dot" />{" "}
                         {localTest ? "Local test" : "Supabase"}
                     </div>
+                    {user?.email && <small className="account-email">{user.email}</small>}
+                    <button className="sidebar-action" onClick={() => setPasswordOpen(true)}>
+                        <KeyRound size={17} />
+                        <span>Đặt mật khẩu</span>
+                    </button>
+                    <button
+                        className="sidebar-action"
+                        onClick={() => void handleLogout()}
+                    >
+                        <LogOut size={17} />
+                        <span>Đăng xuất</span>
+                    </button>
                 </div>
             </aside>
             <main className="main-content">
@@ -1225,6 +1549,20 @@ export default function App() {
                             thu<span>chi</span>
                         </span>
                     </div>
+                    <button
+                        className="icon-button mobile-password"
+                        aria-label="Đặt mật khẩu"
+                        onClick={() => setPasswordOpen(true)}
+                    >
+                        <KeyRound size={19} />
+                    </button>
+                    <button
+                        className="icon-button mobile-logout"
+                        aria-label="Đăng xuất"
+                        onClick={() => void handleLogout()}
+                    >
+                        <LogOut size={20} />
+                    </button>
                 </div>
                 {page === "overview" && (
                     <Overview
@@ -1256,6 +1594,15 @@ export default function App() {
                     />
                 )}
             </main>
+            {passwordOpen && (
+                <SetPasswordDialog
+                    onClose={() => setPasswordOpen(false)}
+                    onDone={async () => {
+                        setPasswordOpen(false);
+                        await startSession();
+                    }}
+                />
+            )}
             <nav className="bottom-nav">
                 {nav.map((n) => {
                     const Icon = n.icon;
