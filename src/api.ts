@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Data } from './domain.ts';
 import type { User } from '@supabase/supabase-js';
 import {
+    hasPermanentSession,
     requestPasswordReset,
     signInWithEmail,
     signInWithGoogle,
@@ -21,18 +22,25 @@ export async function getSession():Promise<boolean> {
  if(!supabase)throw new Error('Chưa cấu hình Supabase.');
  const {data,error}=await supabase.auth.getSession();
  if(error)throw error;
- return !!data.session;
+ if(!hasPermanentSession(data.session)){
+  if(data.session)await supabase.auth.signOut();
+  return false;
+ }
+ return true;
 }
 export async function getUser():Promise<User|null> {
  if(localTest){return (await local('session')).authenticated ? ({id:'local-test',email:'local@test'} as User) : null;}
  if(!supabase)throw new Error('Chưa cấu hình Supabase.');
  const {data,error}=await supabase.auth.getUser();
  if(error)throw error;
- return data.user;
+ return data.user?.is_anonymous ? null : data.user;
 }
 export function subscribeToAuth(callback:(user:User|null)=>void):()=>void {
  if(localTest || !supabase)return ()=>undefined;
- const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>callback(session?.user ?? null));
+ const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
+  if(!session || session.user?.is_anonymous)return callback(null);
+  callback(session.user ?? null);
+ });
  return ()=>subscription.unsubscribe();
 }
 export async function login(email:string,password:string):Promise<void> {

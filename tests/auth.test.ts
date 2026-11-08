@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+    hasPermanentSession,
     passwordValidationError,
     signInWithEmail,
     signInWithGoogle,
@@ -108,4 +109,10 @@ test("auth errors are localized and actionable", async () => {
         updatePassword(expired.auth, "new-secret123"),
         /Liên kết khôi phục đã hết hạn hoặc không hợp lệ/,
     );
+});
+
+test("anonymous sessions do not count as permanent authentication", () => {
+    assert.equal(hasPermanentSession(null), false);
+    assert.equal(hasPermanentSession({ user: { is_anonymous: true } }), false);
+    assert.equal(hasPermanentSession({ user: { is_anonymous: false } }), true);
 });

@@ -2,6 +2,12 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 export type AuthClient = SupabaseClient["auth"];
 
+export function hasPermanentSession(
+    session: { user?: { is_anonymous?: boolean } } | null | undefined,
+): boolean {
+    return !!session && session.user?.is_anonymous !== true;
+}
+
 export function authErrorMessage(message: string): string {
     const normalized = message.toLowerCase();
     if (normalized.includes("invalid login credentials"))
