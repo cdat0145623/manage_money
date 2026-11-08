@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Data } from './domain.ts';
 import type { User } from '@supabase/supabase-js';
 import {
+    authErrorMessage,
     hasPermanentSession,
     requestPasswordReset,
     signInWithEmail,
@@ -21,7 +22,7 @@ export async function getSession():Promise<boolean> {
  if(localTest)return (await local('session')).authenticated;
  if(!supabase)throw new Error('Chưa cấu hình Supabase.');
  const {data,error}=await supabase.auth.getSession();
- if(error)throw error;
+ if(error)throw new Error(authErrorMessage(error.message));
  if(!hasPermanentSession(data.session)){
   if(data.session)await supabase.auth.signOut();
   return false;
@@ -32,7 +33,7 @@ export async function getUser():Promise<User|null> {
  if(localTest){return (await local('session')).authenticated ? ({id:'local-test',email:'local@test'} as User) : null;}
  if(!supabase)throw new Error('Chưa cấu hình Supabase.');
  const {data,error}=await supabase.auth.getUser();
- if(error)throw error;
+ if(error)throw new Error(authErrorMessage(error.message));
  return data.user?.is_anonymous ? null : data.user;
 }
 export function subscribeToAuth(callback:(user:User|null)=>void):()=>void {
