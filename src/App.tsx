@@ -33,7 +33,11 @@ import {
     setPassword,
     subscribeToAuth,
 } from "./api.ts";
-import { passwordValidationError } from "./auth.ts";
+import {
+    authModeAfterSessionEvent,
+    passwordValidationError,
+} from "./auth.ts";
+import type { AuthMode } from "./auth.ts";
 import {
     CHANNELS,
     DEFAULT_BUDGETS,
@@ -1148,8 +1152,6 @@ function BudgetsPage({
     );
 }
 
-type AuthMode = "signin" | "signup" | "forgot" | "reset";
-
 function appUrl(query?: string) {
     const url = new URL(window.location.href);
     url.hash = "";
@@ -1454,7 +1456,7 @@ export default function App() {
                 setAuthenticated(false);
                 setUser(null);
                 setData(EMPTY);
-                setAuthMode("signin");
+                setAuthMode(authModeAfterSessionEvent(authMode, recoveryFlow, false));
                 setReady(true);
             } else if (!recoveryFlow) {
                 void startSession(activeUser);

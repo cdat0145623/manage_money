@@ -1,6 +1,15 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 export type AuthClient = SupabaseClient["auth"];
+export type AuthMode = "signin" | "signup" | "forgot" | "reset";
+
+export function authModeAfterSessionEvent(
+    currentMode: AuthMode,
+    recoveryFlow: boolean,
+    hasUser: boolean,
+): AuthMode {
+    return hasUser || recoveryFlow ? currentMode : "signin";
+}
 
 export function hasPermanentSession(
     session: { user?: { is_anonymous?: boolean } } | null | undefined,

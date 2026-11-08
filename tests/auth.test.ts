@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+    authModeAfterSessionEvent,
     hasPermanentSession,
     passwordValidationError,
     signInWithEmail,
@@ -115,4 +116,9 @@ test("anonymous sessions do not count as permanent authentication", () => {
     assert.equal(hasPermanentSession(null), false);
     assert.equal(hasPermanentSession({ user: { is_anonymous: true } }), false);
     assert.equal(hasPermanentSession({ user: { is_anonymous: false } }), true);
+});
+
+test("an invalid recovery callback keeps the reset screen visible", () => {
+    assert.equal(authModeAfterSessionEvent("reset", true, false), "reset");
+    assert.equal(authModeAfterSessionEvent("forgot", false, false), "signin");
 });
