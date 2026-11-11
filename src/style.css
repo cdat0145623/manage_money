@@ -132,6 +132,21 @@ h3 {
     letter-spacing: -0.04em;
     padding: 0 12px;
 }
+.sidebar-brand {
+    justify-content: space-between;
+}
+.sidebar-brand-identity {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+}
+.sidebar-brand-identity .brand-mark {
+    flex: 0 0 auto;
+}
+.sidebar-brand-identity > span:last-child > span {
+    color: #7bd4ad;
+}
 .brand > span:last-child > span {
     color: #7bd4ad;
 }
@@ -154,20 +169,23 @@ h3 {
     box-shadow: none;
 }
 .sidebar-toggle {
-    margin: 18px 4px 0 auto;
+    flex: 0 0 44px;
+    margin: 0;
     color: #b6cbd0;
 }
 .sidebar-collapsed {
-    --sidebar-width: 76px;
+    --sidebar-width: 104px;
 }
 .sidebar-collapsed .sidebar {
     padding-inline: 10px;
 }
 .sidebar-collapsed .brand {
-    justify-content: center;
+    justify-content: space-between;
     padding-inline: 0;
 }
-.sidebar-collapsed .brand > span:last-child,
+.sidebar-collapsed .sidebar-brand-identity > span:last-child {
+    display: none;
+}
 .sidebar-collapsed .sidebar nav button > span,
 .sidebar-collapsed .sidebar-bottom .environment-label,
 .sidebar-collapsed .sidebar-bottom .account-email,
@@ -181,7 +199,7 @@ h3 {
     padding-inline: 0;
 }
 .sidebar-collapsed .sidebar-toggle {
-    margin-inline: auto;
+    margin: 0;
 }
 .sidebar nav {
     display: grid;
@@ -900,9 +918,15 @@ h3 {
     grid-template-columns: 1fr 1fr;
     gap: 12px;
 }
+.form-grid > label {
+    align-self: start;
+}
 .category-control {
     display: grid;
     gap: 6px;
+}
+.category-control select {
+    min-width: 0;
 }
 .category-create-trigger {
     justify-self: start;
@@ -920,6 +944,20 @@ h3 {
 .category-manager {
     max-height: min(65svh, 520px);
     overflow: auto;
+}
+.category-manager-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+.category-manager-create {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+}
+.category-manager-create .button {
+    min-height: 40px;
+    padding-inline: 12px;
 }
 .category-list {
     display: grid;
@@ -1322,7 +1360,7 @@ h3 {
         --sidebar-width: 205px;
     }
     .sidebar-collapsed {
-        --sidebar-width: 76px;
+        --sidebar-width: 104px;
     }
     .main-content {
         width: calc(100% - var(--sidebar-width));
@@ -1387,18 +1425,24 @@ h3 {
     }
     .page-header {
         display: grid;
+        justify-content: stretch;
         gap: 18px;
         align-items: start;
         margin-bottom: 25px;
     }
     .header-tools {
-        justify-content: space-between;
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 10px;
     }
-    .header-tools .button {
-        flex: 1;
+    .header-tools .month-picker {
+        width: 100%;
     }
     .header-actions {
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 100%;
     }
     .month-picker {
         justify-content: space-between;
@@ -1488,7 +1532,7 @@ h3 {
         grid-column: 1;
         text-align: left;
         margin-left: 43px;
-        margin-top: -19px;
+        margin-top: 0;
     }
     .row-money small {
         justify-content: flex-start;
@@ -1545,7 +1589,13 @@ h3 {
         width: 100%;
     }
     .header-actions .button {
-        flex: 1;
+        width: 100%;
+    }
+    .category-manager-actions {
+        justify-content: stretch;
+    }
+    .category-manager-actions .button {
+        width: 100%;
     }
     .category-row {
         grid-template-columns: 1fr;

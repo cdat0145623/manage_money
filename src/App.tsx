@@ -112,16 +112,20 @@ function useRoute() {
 function CategoryManager({
     categories,
     onAction,
+    onCreate,
     onClose,
 }: {
     categories: Category[];
     onAction: (action: string, payload: unknown) => Promise<void>;
+    onCreate: (name: string) => Promise<Category>;
     onClose: () => void;
 }) {
     const [editing, setEditing] = useState<string | null>(null);
     const [draft, setDraft] = useState("");
     const [busy, setBusy] = useState("");
     const [error, setError] = useState("");
+    const [creating, setCreating] = useState(false);
+    const [newName, setNewName] = useState("");
     const ordered = [...categories].sort((a, b) =>
         a.name.localeCompare(b.name, "vi"),
     );
@@ -137,6 +141,24 @@ function CategoryManager({
             setBusy("");
         }
     }
+    async function create() {
+        const name = newName.trim();
+        if (!name) {
+            setError("Nhập tên hạng mục.");
+            return;
+        }
+        setBusy("create");
+        setError("");
+        try {
+            await onCreate(name);
+            setNewName("");
+            setCreating(false);
+        } catch (e) {
+            setError((e as Error).message);
+        } finally {
+            setBusy("");
+        }
+    }
     return (
         <Modal
             title="Quản lý hạng mục"
@@ -144,6 +166,46 @@ function CategoryManager({
             onClose={onClose}
         >
             <div className="form-body category-manager">
+                <div className="category-manager-actions">
+                    <button
+                        type="button"
+                        className="button primary"
+                        disabled={!!busy}
+                        onClick={() => {
+                            setCreating((open) => !open);
+                            setError("");
+                        }}
+                    >
+                        {!creating && <Plus size={16} />}
+                        {creating ? "Đóng tạo" : "Tạo hạng mục"}
+                    </button>
+                </div>
+                {creating && (
+                    <form
+                        className="category-manager-create"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            void create();
+                        }}
+                    >
+                        <input
+                            autoFocus
+                            aria-label="Tên hạng mục mới"
+                            maxLength={100}
+                            value={newName}
+                            placeholder="Ví dụ: Học tập"
+                            onChange={(e) => setNewName(e.target.value)}
+                        />
+                        <button
+                            type="submit"
+                            className="button primary"
+                            disabled={busy === "create"}
+                            aria-busy={busy === "create"}
+                        >
+                            {busy === "create" ? "Đang tạo…" : "Tạo"}
+                        </button>
+                    </form>
+                )}
                 {error && (
                     <p className="error" role="alert">
                         {error}
@@ -152,7 +214,7 @@ function CategoryManager({
                 {!ordered.length ? (
                     <Empty
                         title="Chưa có hạng mục"
-                        text="Bạn có thể tạo hạng mục ngay trong form khoản chi."
+                        text="Tạo hạng mục đầu tiên bằng nút phía trên."
                     />
                 ) : (
                     <div className="category-list">
@@ -927,6 +989,7 @@ function ExpensesPage({
                 <CategoryManager
                     categories={data.categories}
                     onAction={onCategoryAction}
+                    onCreate={onCreateCategory}
                     onClose={() => setModal(null)}
                 />
             )}
@@ -1773,23 +1836,25 @@ export default function App() {
     return (
         <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
             <aside className="sidebar">
-                <div className="brand">
-                    <span className="brand-mark small">
-                        <CircleDollarSign size={22} />
-                    </span>
-                    <span>
-                        thu<span>chi</span>
-                    </span>
+                <div className="brand sidebar-brand">
+                    <div className="sidebar-brand-identity">
+                        <span className="brand-mark small">
+                            <CircleDollarSign size={22} />
+                        </span>
+                        <span>
+                            thu<span>chi</span>
+                        </span>
+                    </div>
+                    <button
+                        className="sidebar-toggle icon-button"
+                        aria-label={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+                        aria-pressed={sidebarCollapsed}
+                        title={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+                        onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+                    >
+                        {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                    </button>
                 </div>
-                <button
-                    className="sidebar-toggle icon-button"
-                    aria-label={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
-                    aria-pressed={sidebarCollapsed}
-                    title={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
-                    onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-                >
-                    {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-                </button>
                 <nav>
                     {nav.map((n) => {
                         const Icon = n.icon;
