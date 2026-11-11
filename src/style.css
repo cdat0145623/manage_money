@@ -179,11 +179,11 @@ h3 {
 .sidebar-collapsed .sidebar {
     padding-inline: 10px;
 }
-.sidebar-collapsed .brand {
-    justify-content: space-between;
+.sidebar-collapsed .sidebar-brand {
+    justify-content: center;
     padding-inline: 0;
 }
-.sidebar-collapsed .sidebar-brand-identity > span:last-child {
+.sidebar-collapsed .sidebar-brand-identity {
     display: none;
 }
 .sidebar-collapsed .sidebar nav button > span,
