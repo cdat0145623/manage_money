@@ -1,8 +1,8 @@
-# Thu Chi — Spec v1
+# Thu Chi — Spec v1 + Scope Amendment v2
 
-Ngày: 03/11/2026. Trạng thái: đã được người dùng chốt để triển khai; implementation local đang chạy.
+Ngày: 11/11/2026. Trạng thái: v1 đã triển khai; amendment v2 đã được người dùng chốt để triển khai tiếp.
 
-Tổng hợp bằng skill to-spec; định hướng UI/UX theo ui-ux-pro-max. Theo yêu cầu người dùng, chỉ lưu local, không tạo Git repository, issue, commit hoặc PR. Dự án hiện là thư mục trống, không có implementation, glossary, ADR hoặc test có sẵn. Không cần brownfield discovery cho bước tổng hợp này.
+Tổng hợp bằng skill to-spec; định hướng UI/UX theo ui-ux-pro-max. Phần v1 bên dưới là lịch sử scope đã triển khai; phần amendment v2 ở cuối là nguồn chốt cho đợt tiếp theo. Issue tracker là nơi theo dõi triển khai, còn file này là bản spec local.
 
 ## Problem Statement
 
@@ -166,8 +166,90 @@ Các điểm kiểm thử và tiêu chí trên cần người dùng duyệt cùn
 
 ## Further Notes
 
-- Người dùng đã đồng ý các khuyến nghị nghiệp vụ; chưa duyệt bản spec tổng hợp và các chi tiết bổ sung trong tài liệu này.
-- Cần duyệt đặc biệt phương án tự tạo kỳ khi mở app, định hướng UI sáng, React/Vite + Supabase hosted và tiêu chí nghiệm thu. Những lựa chọn này được đề xuất để giữ v1 đơn giản mà không bỏ chức năng đã yêu cầu.
+- Người dùng đã đồng ý các khuyến nghị nghiệp vụ và đã chốt amendment v2 ở cuối tài liệu để triển khai tiếp.
+- Phương án tự tạo kỳ khi mở app, định hướng UI sáng, React/Vite + Supabase hosted và tiêu chí nghiệm thu là các quyết định v1 đã dùng; không mở rộng chúng trong amendment này.
 - Supabase project/nguồn cấu hình và tài khoản đăng nhập chưa được chỉ định. Đây là thông tin vận hành cần trước kết nối DB thật, không phải lý do trì hoãn việc viết spec.
 - CODEX_HOME không được đặt trong shell kiểm tra; đã đọc instruction global tại profile .codex và instruction người dùng. Không truy cập credential hoặc thực hiện hành động nhạy cảm ở bước này.
-- Trình tự tiếp theo: người dùng duyệt scope và test → lập kế hoạch ngắn → triển khai UI/logic/persistence → kiểm thử runtime thật → public local bằng Cloudflare có sẵn và bàn giao URL/cách dừng.
+- Trình tự tiếp theo của v2: lập kế hoạch ngắn → migration → triển khai UI/logic/persistence → kiểm thử runtime thật → cập nhật issue và bàn giao kết quả.
+
+## Scope Amendment v2 — Sidebar thu gọn và hạng mục người dùng quản lý
+
+Phần này là scope hiện hành cho đợt triển khai tiếp theo và supersede các câu trong v1 nói rằng chưa có hạng mục khoản mục riêng hoặc không quản lý hạng mục. Các quyết định v1 khác vẫn giữ nguyên.
+
+### Problem Statement
+
+Người dùng cần thu gọn sidebar trên màn hình rộng khi không dùng để có thêm không gian cho nội dung. Mỗi khoản chi cũng cần một **hạng mục** do chính tài khoản quản lý, tách biệt với kênh chi tiêu, phân loại và nhãn. Hạng mục phải có thể tạo ngay trong form thêm khoản chi, xuất hiện ngay trong lựa chọn sau khi tạo, dùng được cho khoản chi thường và lịch tái diễn, đồng thời dùng được khi lọc và thống kê.
+
+### Solution
+
+Giữ bốn khu vực hiện có. Sidebar desktop/tablet có trạng thái mở và thu gọn; trạng thái được nhớ ở trình duyệt. Trên mobile vẫn dùng thanh điều hướng dưới như hiện tại. Hạng mục được quản lý ngay trong trang **Khoản chi**, không tạo thêm mục điều hướng cấp cao. Form thêm/sửa khoản chi và form lịch tái diễn có trường Hạng mục cùng thao tác “Tạo hạng mục”. Danh sách và báo cáo có bộ lọc hạng mục.
+
+### User Stories
+
+1. Là người dùng desktop/tablet, tôi muốn bấm một nút trên sidebar để thu gọn/mở rộng sidebar mà không làm mất trang đang xem.
+2. Là người dùng, tôi muốn lần sau mở cùng trình duyệt vẫn giữ trạng thái sidebar tôi đã chọn.
+3. Là người dùng keyboard hoặc screen reader, tôi muốn nút sidebar có tên truy cập, focus rõ và tooltip khi sidebar đã thu gọn.
+4. Là người dùng mobile, tôi muốn giữ thanh điều hướng dưới và không bị thêm sidebar ngang gây tràn màn hình.
+5. Là người dùng, tôi muốn gắn một hạng mục tùy chọn cho khoản chi để phân biệt mục đích sử dụng.
+6. Là người dùng, tôi muốn chọn hạng mục đã tạo trước đó trong form khoản chi.
+7. Là người dùng, tôi muốn tạo hạng mục ngay tại form khoản chi mà không phải rời form hoặc mất dữ liệu đang nhập.
+8. Là người dùng, tôi muốn sau khi tạo thành công hạng mục mới thì hạng mục đó được chọn ngay và xuất hiện trong các lần mở select tiếp theo.
+9. Là người dùng, tôi muốn quản lý danh sách hạng mục của riêng mình trong trang Khoản chi.
+10. Là người dùng, tôi muốn đổi tên hạng mục và thấy tên mới trong cả lịch sử cũ.
+11. Là người dùng, tôi muốn lưu trữ hạng mục không còn dùng để nó không xuất hiện cho khoản mới nhưng vẫn giữ lịch sử cũ.
+12. Là người dùng, tôi muốn hạng mục có thể gắn cho cả khoản chi một lần và lịch tái diễn.
+13. Là người dùng, tôi muốn lọc danh sách khoản chi theo hạng mục.
+14. Là người dùng, tôi muốn nhóm hoặc lọc báo cáo theo hạng mục để biết chi phí theo mục đích.
+15. Là người dùng, tôi muốn khoản cũ chưa có hạng mục vẫn hiển thị rõ là “Chưa phân loại” và không bị mất khi nâng cấp dữ liệu.
+16. Là người dùng, tôi muốn lỗi tạo hạng mục hoặc lỗi lưu khoản chi hiển thị gần trường liên quan, giữ nguyên nội dung form và không tạo bản ghi giả.
+
+### Implementation Decisions
+
+- Sidebar chỉ thu gọn trên tablet/desktop. Trạng thái mở hiển thị logo, tên, icon và nhãn; trạng thái thu gọn chỉ hiển thị icon, có tooltip/aria-label. Mobile giữ bottom navigation bốn mục.
+- Nút thu gọn đặt ở vùng đầu sidebar, kích thước chạm tối thiểu 44×44px. Layout dùng một biến kích thước sidebar để main content, header và breakpoint cập nhật cùng nhau; không nhân bản CSS theo từng trang.
+- Lưu trạng thái sidebar bằng `localStorage`. Nếu storage lỗi, dùng trạng thái mở mặc định và ứng dụng vẫn chạy.
+- Hạng mục là thực thể riêng, khác với `channel`, `kind` và `tag`. Tên được chuẩn hóa khoảng trắng ở đầu/cuối, không rỗng, không phân biệt hoa thường khi kiểm tra trùng trong cùng tài khoản.
+- Hạng mục là tùy chọn ở v2. Giá trị null trong dữ liệu cũ hoặc khoản mới được hiển thị là “Chưa phân loại”; không ép backfill giả.
+- Người dùng quản lý hạng mục ngay trong trang Khoản chi: nút “Quản lý hạng mục” mở panel/sheet quản lý; không thêm mục Hạng mục vào sidebar.
+- Form khoản chi và form lịch tái diễn có cùng select Hạng mục. Cạnh select có “+ Tạo hạng mục”; dialog/sheet tạo nhanh chỉ cần tên. Sau khi API xác nhận, client cập nhật nguồn dữ liệu dùng chung, đóng dialog, chọn hạng mục mới và giữ các field khác.
+- Nếu tạo nhanh thất bại, không thêm option cục bộ; giữ form đang nhập, focus lại lỗi và cho phép thử lại. Nhiều lần tạo liên tiếp dùng cùng flow tạo đơn lẻ, không thêm endpoint bulk.
+- Đổi tên hạng mục cập nhật bản ghi hạng mục và làm lịch sử hiển thị tên mới. Lưu trữ là soft archive; hạng mục archived không xuất hiện trong select khoản mới nhưng vẫn xuất hiện ở dữ liệu lịch sử và bộ lọc khi cần.
+- Không hard delete hạng mục đã từng được tham chiếu. Không cho tạo hạng mục trùng tên sau khi chỉ khác hoa thường hoặc khoảng trắng.
+- Database thêm bảng `categories` gồm id, user_id, name, archived, created_at; unique theo `(user_id, normalized_name)`; RLS chỉ cho chủ sở hữu đọc/ghi. Khoản chi và lịch tái diễn thêm nullable `category_id` với liên kết cùng chủ sở hữu. Kỳ tái diễn sinh từ lịch kế thừa category_id tại thời điểm tạo kỳ.
+- Migration tạo bảng và cột trước khi client đọc trường mới. Không sửa migration đã chạy; thêm migration kế tiếp có kiểm tra owner-safe foreign key và index cho filter.
+- Load dữ liệu lấy categories cùng các bảng hiện có. Mutation dùng cơ chế idempotent hiện tại cho create/rename/archive và liên kết category khi tạo/sửa expense hoặc schedule. Không thêm backend riêng.
+- Category filter có option “Tất cả hạng mục” và “Chưa phân loại”; hạng mục archived vẫn lọc được bản ghi lịch sử. Reports cho phép group-by category bên cạnh channel/kind/tag.
+- V1 không thêm màu, icon, cây phân cấp, ngân sách riêng theo hạng mục, nhiều hạng mục trên một khoản hoặc chuyển đổi lịch sử tự động.
+
+### Testing Decisions
+
+Seam chính đã chốt: browser flow của tài khoản test đi qua UI → mutation/RLS → tải lại dữ liệu. Luồng này phải chứng minh cả responsive layout và persistence, không thay bằng mock.
+
+Tiêu chí nghiệm thu:
+
+1. Desktop/tablet bấm thu gọn/mở rộng sidebar, main content không bị che hoặc cuộn ngang; reload vẫn giữ trạng thái. Mobile không xuất hiện sidebar ngang mới và bottom nav vẫn dùng được.
+2. Trong form khoản chi, tạo hạng mục mới, thấy option ngay, option được chọn, lưu khoản chi, reload vẫn thấy đúng hạng mục.
+3. Tạo hạng mục thất bại không làm mất dữ liệu form và không tạo option giả; nút tạo có trạng thái loading/disabled trong lúc request.
+4. Tạo hạng mục trùng tên bị từ chối rõ ràng; hai request đồng thời không tạo bản ghi trùng.
+5. Đổi tên hạng mục làm lịch sử hiển thị tên mới; archive ẩn khỏi khoản mới nhưng không xóa liên kết cũ.
+6. Gán hạng mục cho lịch tái diễn; kỳ được sinh ra giữ đúng hạng mục; sửa category của lịch không làm đổi các kỳ đã xác nhận ngoài thao tác sửa riêng.
+7. Lọc Khoản chi theo hạng mục, “Chưa phân loại” và “Tất cả” trả đúng tổng; Reports group/filter theo hạng mục khớp danh sách chi tiết.
+8. Dữ liệu cũ không có category_id vẫn đọc được và hiển thị “Chưa phân loại”; tài khoản khác không đọc hoặc gán hạng mục của nhau.
+9. Kiểm tra viewport 375, 768, 1024 và 1440px; không zoom để dùng select, dialog, sidebar; focus/aria label và trạng thái lỗi rõ.
+
+Trước mỗi test/API/browser vẫn áp dụng runtime preflight trong AGENTS.md. Dữ liệu test phải dùng tài khoản/database test riêng, gắn nhận diện rõ và giữ lại để kiểm tra; không test trực tiếp dữ liệu production.
+
+### Out of Scope
+
+- Trang Hạng mục riêng ở sidebar hoặc route cấp cao.
+- Màu/icon hạng mục, cây hạng mục, hạng mục con, nhiều hạng mục trên một khoản.
+- Ngân sách riêng theo hạng mục, phân quyền chia sẻ hạng mục, import/export hạng mục.
+- Hard delete hoặc tự gộp hai hạng mục đã tồn tại.
+- Worker nền, thông báo, offline-first, package UI mới hoặc backend mới chỉ cho tính năng này.
+
+### Further Notes
+
+- Scope này không thay đổi flow Auth/Supabase session đã chốt ở issue #1; category chỉ dùng user_id hiện tại và RLS.
+- Nếu migration production không được áp dụng trước khi deploy client, load dữ liệu sẽ lỗi vì thiếu bảng/cột; migration là bước bắt buộc trước smoke test thật.
+- Nút “Quản lý hạng mục” nằm trong Khoản chi để giữ điều hướng ngắn; nếu sau này số lượng hạng mục lớn hoặc có cấu trúc phân cấp, khi đó mới tách route riêng.
+- Issue tracker: [issue #2](https://github.com/cdat0145623/manage_money/issues/2) đã được tạo với nhãn `ready-for-agent`; không commit/push trong bước chốt spec.

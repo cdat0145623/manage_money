@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { allocation, dueDate, totals, allocationPosition } from '../src/domain.ts';
 import type { Expense, Refund } from '../src/domain.ts';
-const e: Expense = { id: 'e', description: 'Laptop', amount: 24000000, date: '2026-11-15', channel: 'shopping', kind: 'once', tag: 'Asset', months: 12, status: 'confirmed', schedule_id: null, period: null, version: 1 };
+const e: Expense = { id: 'e', description: 'Laptop', amount: 24000000, date: '2026-11-15', channel: 'shopping', kind: 'once', tag: 'Asset', category_id: null, months: 12, status: 'confirmed', schedule_id: null, period: null, version: 1 };
 test('24 triệu phân bổ đủ 12 kỳ từ tháng mua, không lẫn thực chi', () => {
  const rows = allocation(e, []);
  assert.equal(rows['2026-11'], 2000000);

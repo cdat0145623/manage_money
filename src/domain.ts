@@ -6,6 +6,14 @@ export const CHANNELS = {
 export type Channel = keyof typeof CHANNELS;
 export const TAGS = ["Asset", "Tools", "Allocation"] as const;
 export type Tag = (typeof TAGS)[number];
+export interface Category {
+    id: string;
+    user_id: string;
+    name: string;
+    archived: boolean;
+    created_at: string;
+}
+export type CategoryFilter = "all" | "uncategorized" | string;
 export const DEFAULT_BUDGETS: Record<Channel, number> = {
     shopping: 10000000,
     transfer: 5000000,
@@ -19,6 +27,7 @@ export interface Expense {
     channel: Channel;
     kind: "once" | "recurring";
     tag: Tag;
+    category_id: string | null;
     months: number;
     status: "pending" | "confirmed" | "skipped" | "cancelled";
     schedule_id: string | null;
@@ -38,6 +47,7 @@ export interface Schedule {
     amount: number;
     channel: Channel;
     tag: Tag;
+    category_id: string | null;
     months: number;
     start_date: string;
     frequency: "monthly" | "yearly";
@@ -51,17 +61,39 @@ export interface Budget {
     amount: number;
 }
 export interface Data {
+    categories: Category[];
     expenses: Expense[];
     refunds: Refund[];
     schedules: Schedule[];
     budgets: Budget[];
 }
 export const EMPTY: Data = {
+    categories: [],
     expenses: [],
     refunds: [],
     schedules: [],
     budgets: [],
 };
+export function normalizeCategoryName(name: string): string {
+    return name.trim().replace(/\s+/g, " ");
+}
+export function categoryLabel(
+    item: { category_id: string | null },
+    categories: Category[],
+): string {
+    return (
+        categories.find((category) => category.id === item.category_id)?.name ??
+        "Chưa phân loại"
+    );
+}
+export function matchesCategory(
+    item: { category_id: string | null },
+    filter: CategoryFilter,
+): boolean {
+    if (filter === "all") return true;
+    if (filter === "uncategorized") return item.category_id === null;
+    return item.category_id === filter;
+}
 export const money = (v: number) =>
     new Intl.NumberFormat("vi-VN", {
         style: "currency",

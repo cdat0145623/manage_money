@@ -20,8 +20,15 @@ import {
     addMonths,
     monthLabel,
     allocationPosition,
+    categoryLabel,
 } from "./domain.ts";
-import type { Channel, Expense, Refund, Schedule } from "./domain.ts";
+import type {
+    Category,
+    Channel,
+    Expense,
+    Refund,
+    Schedule,
+} from "./domain.ts";
 export const channelIcons = {
     shopping: ShoppingBag,
     transfer: ArrowLeftRight,
@@ -110,6 +117,7 @@ export type Save = (
     payload: unknown,
     requestId: string,
 ) => Promise<void>;
+export type CreateCategory = (name: string) => Promise<Category>;
 function useSubmit(save: Save, action: string, onDone: () => void) {
     const [busy, setBusy] = useState(false),
         [error, setError] = useState("");
@@ -159,18 +167,135 @@ export function FormEnd({
         </footer>
     );
 }
+export function CategoryField({
+    value,
+    categories,
+    onChange,
+    onCreate,
+}: {
+    value: string | null;
+    categories: Category[];
+    onChange: (value: string | null) => void;
+    onCreate: CreateCategory;
+}) {
+    const [creating, setCreating] = useState(false);
+    const [name, setName] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const errorRef = useRef<HTMLElement>(null);
+    const creatingRef = useRef(false);
+    const visible = categories
+        .filter((category) => !category.archived || category.id === value)
+        .sort((a, b) => a.name.localeCompare(b.name, "vi"));
+    useEffect(() => {
+        if (error) errorRef.current?.focus();
+    }, [error]);
+    async function create() {
+        if (creatingRef.current) return;
+        if (!name.trim()) {
+            setError("Nhập tên hạng mục.");
+            return;
+        }
+        creatingRef.current = true;
+        setBusy(true);
+        setError("");
+        try {
+            const category = await onCreate(name);
+            onChange(category.id);
+            setName("");
+            setCreating(false);
+        } catch (e) {
+            setError((e as Error).message);
+        } finally {
+            creatingRef.current = false;
+            setBusy(false);
+        }
+    }
+    return (
+        <label>
+            Hạng mục
+            <div className="category-control">
+                <select
+                    value={value ?? ""}
+                    onChange={(e) => onChange(e.target.value || null)}
+                >
+                    <option value="">Chưa phân loại</option>
+                    {visible.map((category) => (
+                        <option value={category.id} key={category.id}>
+                            {category.name}
+                            {category.archived ? " (đã lưu trữ)" : ""}
+                        </option>
+                    ))}
+                </select>
+                <button
+                    type="button"
+                    className="text-button category-create-trigger"
+                    onClick={() => {
+                        setCreating((open) => !open);
+                        setError("");
+                    }}
+                >
+                    {creating ? "Đóng" : "+ Tạo hạng mục"}
+                </button>
+            </div>
+            {creating && (
+                <div className="category-create">
+                    <input
+                        autoFocus
+                        aria-label="Tên hạng mục mới"
+                        maxLength={100}
+                        value={name}
+                        placeholder="Ví dụ: Học tập"
+                        onChange={(e) => setName(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                void create();
+                            }
+                        }}
+                    />
+                    <button
+                        type="button"
+                        className="button primary"
+                        disabled={busy}
+                        aria-busy={busy}
+                        onClick={() => void create()}
+                    >
+                        {busy ? <LoadingSpinner size={16} /> : <Check size={16} />}
+                        {busy ? "Đang tạo…" : "Tạo"}
+                    </button>
+                </div>
+            )}
+            {error && (
+                <small
+                    ref={errorRef}
+                    className="error"
+                    role="alert"
+                    tabIndex={-1}
+                >
+                    {error}
+                </small>
+            )}
+        </label>
+    );
+}
 export function BaseFields({
     values,
     setValues,
+    categories,
+    onCreateCategory,
 }: {
     values: {
         description: string;
         amount: number;
         channel: Channel;
         tag: Expense["tag"];
+        category_id: string | null;
         months: number;
     };
     setValues: (values: any) => void;
+    categories: Category[];
+    onCreateCategory: CreateCategory;
 }) {
     const update = (name: string, value: unknown) =>
         setValues({ ...values, [name]: value });
@@ -215,6 +340,12 @@ export function BaseFields({
                         ))}
                     </select>
                 </label>
+                <CategoryField
+                    value={values.category_id}
+                    categories={categories}
+                    onChange={(category_id) => update("category_id", category_id)}
+                    onCreate={onCreateCategory}
+                />
                 <label>
                     Nhãn
                     <select
@@ -250,10 +381,14 @@ export function ExpenseForm({
     expense,
     save,
     onClose,
+    categories,
+    onCreateCategory,
 }: {
     expense?: Expense;
     save: Save;
     onClose: () => void;
+    categories: Category[];
+    onCreateCategory: CreateCategory;
 }) {
     const [v, setV] = useState(
         () =>
@@ -265,6 +400,7 @@ export function ExpenseForm({
                 channel: "shopping" as Channel,
                 kind: "once" as Expense["kind"],
                 tag: "Tools" as Expense["tag"],
+                category_id: null,
                 months: 1,
                 version: 0,
             },
@@ -282,7 +418,12 @@ export function ExpenseForm({
                 void submit(v);
             }}
         >
-            <BaseFields values={v} setValues={setV} />
+            <BaseFields
+                values={v}
+                setValues={setV}
+                categories={categories}
+                onCreateCategory={onCreateCategory}
+            />
             <div className="form-grid">
                 <label>
                     Ngày chi
@@ -352,10 +493,14 @@ export function ScheduleForm({
     schedule,
     save,
     onClose,
+    categories,
+    onCreateCategory,
 }: {
     schedule?: Schedule;
     save: Save;
     onClose: () => void;
+    categories: Category[];
+    onCreateCategory: CreateCategory;
 }) {
     const [v, setV] = useState(
         () =>
@@ -365,6 +510,7 @@ export function ScheduleForm({
                 amount: 0,
                 channel: "transfer" as Channel,
                 tag: "Tools" as Expense["tag"],
+                category_id: null,
                 months: 1,
                 start_date: today(),
                 frequency: "monthly" as Schedule["frequency"],
@@ -382,7 +528,12 @@ export function ScheduleForm({
                 void submit(v);
             }}
         >
-            <BaseFields values={v} setValues={setV} />
+            <BaseFields
+                values={v}
+                setValues={setV}
+                categories={categories}
+                onCreateCategory={onCreateCategory}
+            />
             <div className="form-grid">
                 <label>
                     Kỳ thanh toán đầu
@@ -533,11 +684,13 @@ export function ExpenseList({
     expenses,
     refunds,
     month,
+    categories,
     onOpen,
 }: {
     expenses: Expense[];
     refunds: Refund[];
     month: string;
+    categories: Category[];
     onOpen: (e: Expense) => void;
 }) {
     if (!expenses.length)
@@ -551,7 +704,7 @@ export function ExpenseList({
         <div className="expense-list">
             <div className="list-head">
                 <span>Khoản chi</span>
-                <span>Kênh & nhãn</span>
+                <span>Kênh · nhãn · hạng mục</span>
                 <span>Ngày chi</span>
                 <span>Số tiền</span>
             </div>
@@ -582,6 +735,9 @@ export function ExpenseList({
                         <small className={`tag ${e.tag.toLowerCase()}`}>
                             {e.tag}
                         </small>
+                        <small className="category-label">
+                            {categoryLabel(e, categories)}
+                        </small>
                     </span>
                     <time>{e.date.split("-").reverse().join("/")}</time>
                     <span className="row-money">
@@ -602,6 +758,7 @@ export function Detail({
     expense: e,
     refunds,
     month,
+    categories,
     onEdit,
     onRefund,
     onAction,
@@ -609,6 +766,7 @@ export function Detail({
     expense: Expense;
     refunds: Refund[];
     month: string;
+    categories: Category[];
     onEdit: () => void;
     onRefund: () => void;
     onAction: (action: "skip" | "cancel") => Promise<void>;
@@ -639,6 +797,10 @@ export function Detail({
                 <div>
                     <dt>Nhãn</dt>
                     <dd>{e.tag}</dd>
+                </div>
+                <div>
+                    <dt>Hạng mục</dt>
+                    <dd>{categoryLabel(e, categories)}</dd>
                 </div>
                 <div>
                     <dt>Phân loại</dt>

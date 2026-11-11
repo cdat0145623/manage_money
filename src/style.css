@@ -99,13 +99,19 @@ h3 {
     margin: 0;
     font-size: 0.92rem;
 }
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
 .app-shell {
     min-height: 100svh;
     display: flex;
+    --sidebar-width: 238px;
 }
 .sidebar {
-    width: 238px;
-    flex: 0 0 238px;
+    width: var(--sidebar-width);
+    flex: 0 0 var(--sidebar-width);
     background: #102b38;
     color: #d6e3e8;
     display: flex;
@@ -113,6 +119,8 @@ h3 {
     padding: 28px 16px 18px;
     position: fixed;
     inset: 0 auto 0 0;
+    overflow-x: hidden;
+    transition: width 0.2s ease;
 }
 .brand {
     display: flex;
@@ -144,6 +152,36 @@ h3 {
     background: #1a718a;
     color: #d9f2e8;
     box-shadow: none;
+}
+.sidebar-toggle {
+    margin: 18px 4px 0 auto;
+    color: #b6cbd0;
+}
+.sidebar-collapsed {
+    --sidebar-width: 76px;
+}
+.sidebar-collapsed .sidebar {
+    padding-inline: 10px;
+}
+.sidebar-collapsed .brand {
+    justify-content: center;
+    padding-inline: 0;
+}
+.sidebar-collapsed .brand > span:last-child,
+.sidebar-collapsed .sidebar nav button > span,
+.sidebar-collapsed .sidebar-bottom .environment-label,
+.sidebar-collapsed .sidebar-bottom .account-email,
+.sidebar-collapsed .sidebar-bottom .sidebar-action > span {
+    display: none;
+}
+.sidebar-collapsed .sidebar nav button,
+.sidebar-collapsed .sidebar-action,
+.sidebar-collapsed .environment {
+    justify-content: center;
+    padding-inline: 0;
+}
+.sidebar-collapsed .sidebar-toggle {
+    margin-inline: auto;
 }
 .sidebar nav {
     display: grid;
@@ -219,9 +257,12 @@ h3 {
     background: #70dca7;
 }
 .main-content {
-    width: min(1230px, calc(100% - 238px));
-    margin-left: 238px;
+    width: min(1230px, calc(100% - var(--sidebar-width)));
+    margin-left: var(--sidebar-width);
     padding: 40px clamp(24px, 4vw, 66px) 70px;
+    transition:
+        width 0.2s ease,
+        margin-left 0.2s ease;
 }
 .mobile-top,
 .bottom-nav {
@@ -264,8 +305,8 @@ h3 {
     white-space: nowrap;
 }
 .icon-button {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     display: grid;
     place-items: center;
     background: transparent;
@@ -626,6 +667,9 @@ h3 {
     min-width: 230px;
     flex: 1;
 }
+.filters select {
+    min-width: 0;
+}
 .filter-count {
     display: inline-flex;
     align-items: center;
@@ -718,6 +762,9 @@ h3 {
 .tag.allocation {
     background: #fff1d9;
     color: #a76c19 !important;
+}
+.category-label {
+    color: var(--primary) !important;
 }
 .expense-row time {
     color: var(--muted);
@@ -852,6 +899,58 @@ h3 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 12px;
+}
+.category-control {
+    display: grid;
+    gap: 6px;
+}
+.category-create-trigger {
+    justify-self: start;
+}
+.category-create {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+}
+.category-create .button {
+    min-height: 40px;
+    padding-inline: 12px;
+}
+.category-manager {
+    max-height: min(65svh, 520px);
+    overflow: auto;
+}
+.category-list {
+    display: grid;
+    gap: 8px;
+}
+.category-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 10px 12px;
+}
+.category-row > span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+.category-row small {
+    color: var(--muted);
+}
+.category-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.category-row-actions .button {
+    min-height: 36px;
+    padding-inline: 10px;
+    font-size: 0.72rem;
 }
 .allocation-preview {
     display: grid;
@@ -1219,13 +1318,15 @@ h3 {
     text-align: center;
 }
 @media (max-width: 1023px) {
-    .sidebar {
-        width: 205px;
-        flex-basis: 205px;
+    .app-shell {
+        --sidebar-width: 205px;
+    }
+    .sidebar-collapsed {
+        --sidebar-width: 76px;
     }
     .main-content {
-        width: calc(100% - 205px);
-        margin-left: 205px;
+        width: calc(100% - var(--sidebar-width));
+        margin-left: var(--sidebar-width);
         padding: 32px 26px 55px;
     }
     .stat-grid {
@@ -1296,6 +1397,9 @@ h3 {
     .header-tools .button {
         flex: 1;
     }
+    .header-actions {
+        flex-wrap: wrap;
+    }
     .month-picker {
         justify-content: space-between;
     }
@@ -1351,6 +1455,9 @@ h3 {
     .filters {
         display: grid;
         grid-template-columns: 1fr 1fr;
+    }
+    .filters select {
+        width: 100%;
     }
     .filters input {
         padding: 12px;
@@ -1433,6 +1540,18 @@ h3 {
     }
     .detail-actions .button {
         flex-basis: 100%;
+    }
+    .header-actions {
+        width: 100%;
+    }
+    .header-actions .button {
+        flex: 1;
+    }
+    .category-row {
+        grid-template-columns: 1fr;
+    }
+    .category-row-actions .button {
+        flex: 1;
     }
     .report-toolbar {
         display: grid;

@@ -38,7 +38,7 @@ const server=createServer(async(req,res)=>{
   if(req.url==='/local-api/data' && req.method==='GET')return send(200,await snapshot());
   if(req.url==='/local-api/mutate' && req.method==='POST') {
    if(!/^[a-f0-9-]{36}$/.test(payload.request_id||''))return send(400,{error:'Mã thao tác không hợp lệ.'});
-   await mutation(payload.action,payload.payload,payload.request_id);return send(200,{ok:true});
+   const result=await mutation(payload.action,payload.payload,payload.request_id);return send(200,result ? JSON.parse(result) : {ok:true});
   }
   send(404,{error:'Không tìm thấy.'});
  }catch(e){send(400,{error:e.message?.startsWith('ERROR:')?e.message.split('\n')[0].replace('ERROR:','').trim():'Không thể xử lý. Kiểm tra kết nối DB và thử lại.'});}

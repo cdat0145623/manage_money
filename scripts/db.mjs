@@ -12,7 +12,7 @@ export function query(sql, user=TEST_USER) {
 }
 export const mutation=(action,payload,id,user)=>query(`SELECT public.mutate(${sqlText(action)}, ${sqlText(JSON.stringify(payload))}::jsonb, ${sqlText(id)}::uuid);`,user);
 export async function snapshot(user=TEST_USER) {
- const tables=['expenses','schedules','refunds','budgets'];
+ const tables=['categories','expenses','schedules','refunds','budgets'];
  const sql=`SELECT jsonb_build_object(${tables.map(t=>`${sqlText(t)},(SELECT coalesce(jsonb_agg(to_jsonb(x) - 'user_id'),'[]'::jsonb) FROM (SELECT * FROM public.${t}) x)`).join(',')});`;
  return JSON.parse(await query(sql,user));
 }

@@ -78,7 +78,7 @@ export async function loadData():Promise<Data> {
  if(localTest)return local('data');
  if(!supabase)throw new Error('Chưa cấu hình Supabase.');
  // Read every page. A truncated 1,000-row response must never become a financial total.
- const pairs=await Promise.all(['expenses','refunds','schedules','budgets'].map(async table=>{
+ const pairs=await Promise.all(['categories','expenses','refunds','schedules','budgets'].map(async table=>{
   const rows:unknown[]=[];
   for(let offset=0;;offset+=500){
    let q=supabase!.from(table).select('*').order(table==='budgets'?'month':'id');
@@ -90,6 +90,7 @@ export async function loadData():Promise<Data> {
  }));
  const raw=Object.fromEntries(pairs) as unknown as Data;
  return {
+  categories: raw.categories.map(c=>({...c,archived:Boolean(c.archived)})),
   expenses: raw.expenses.map(e=>({...e,amount:Number(e.amount),months:Number(e.months),period:e.period===null?null:Number(e.period),version:Number(e.version)})),
   refunds: raw.refunds.map(r=>({...r,amount:Number(r.amount)})),
   schedules: raw.schedules.map(s=>({...s,amount:Number(s.amount),months:Number(s.months),version:Number(s.version)})),
@@ -97,7 +98,7 @@ export async function loadData():Promise<Data> {
  };
 }
 export async function mutate(action:string,payload:unknown,request_id:string) {
- if(localTest){await local('mutate',{action,payload,request_id});return;}
+ if(localTest)return local('mutate',{action,payload,request_id});
  if(!supabase)throw new Error('Chưa cấu hình Supabase.');
- const {error}=await supabase.rpc('mutate',{action,payload,request_id});if(error)throw new Error(error.message);
+ const {data,error}=await supabase.rpc('mutate',{action,payload,request_id});if(error)throw new Error(error.message);return data;
 }

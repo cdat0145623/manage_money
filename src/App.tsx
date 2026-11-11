@@ -13,6 +13,8 @@ import {
     LockKeyhole,
     LogOut,
     Mail,
+    PanelLeftClose,
+    PanelLeftOpen,
     Plus,
     Repeat2,
     Settings2,
@@ -46,12 +48,22 @@ import {
     allocation,
     allocationPosition,
     budgetFor,
+    categoryLabel,
+    matchesCategory,
     monthLabel,
     money,
     today,
     totals,
 } from "./domain.ts";
-import type { Channel, Data, Expense, Refund, Schedule } from "./domain.ts";
+import type {
+    Category,
+    CategoryFilter,
+    Channel,
+    Data,
+    Expense,
+    Refund,
+    Schedule,
+} from "./domain.ts";
 import {
     Detail,
     Empty,
@@ -95,6 +107,160 @@ function useRoute() {
             location.hash = `/${p}`;
         },
     ] as const;
+}
+
+function CategoryManager({
+    categories,
+    onAction,
+    onClose,
+}: {
+    categories: Category[];
+    onAction: (action: string, payload: unknown) => Promise<void>;
+    onClose: () => void;
+}) {
+    const [editing, setEditing] = useState<string | null>(null);
+    const [draft, setDraft] = useState("");
+    const [busy, setBusy] = useState("");
+    const [error, setError] = useState("");
+    const ordered = [...categories].sort((a, b) =>
+        a.name.localeCompare(b.name, "vi"),
+    );
+    async function run(action: string, payload: unknown, key: string) {
+        setBusy(key);
+        setError("");
+        try {
+            await onAction(action, payload);
+            setEditing(null);
+        } catch (e) {
+            setError((e as Error).message);
+        } finally {
+            setBusy("");
+        }
+    }
+    return (
+        <Modal
+            title="Quản lý hạng mục"
+            subtitle="Đổi tên hoặc lưu trữ hạng mục của bạn."
+            onClose={onClose}
+        >
+            <div className="form-body category-manager">
+                {error && (
+                    <p className="error" role="alert">
+                        {error}
+                    </p>
+                )}
+                {!ordered.length ? (
+                    <Empty
+                        title="Chưa có hạng mục"
+                        text="Bạn có thể tạo hạng mục ngay trong form khoản chi."
+                    />
+                ) : (
+                    <div className="category-list">
+                        {ordered.map((category) => (
+                            <div className="category-row" key={category.id}>
+                                {editing === category.id ? (
+                                    <input
+                                        autoFocus
+                                        aria-label={`Đổi tên hạng mục ${category.name}`}
+                                        maxLength={100}
+                                        value={draft}
+                                        onChange={(e) => setDraft(e.target.value)}
+                                    />
+                                ) : (
+                                    <span>
+                                        <strong>{category.name}</strong>
+                                        <small>
+                                            {category.archived
+                                                ? "Đã lưu trữ"
+                                                : "Đang sử dụng"}
+                                        </small>
+                                    </span>
+                                )}
+                                <div className="category-row-actions">
+                                    {editing === category.id ? (
+                                        <>
+                                            <button
+                                                type="button"
+                                                className="button primary"
+                                                disabled={busy === category.id}
+                                                aria-busy={busy === category.id}
+                                                onClick={() =>
+                                                    void run(
+                                                        "category_rename",
+                                                        { id: category.id, name: draft },
+                                                        category.id,
+                                                    )
+                                                }
+                                            >
+                                                {busy === category.id ? "Đang lưu…" : "Lưu"}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="button"
+                                                disabled={!!busy}
+                                                onClick={() => setEditing(null)}
+                                            >
+                                                Hủy
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button
+                                                type="button"
+                                                className="button"
+                                                disabled={!!busy}
+                                                onClick={() => {
+                                                    setDraft(category.name);
+                                                    setEditing(category.id);
+                                                    setError("");
+                                                }}
+                                            >
+                                                Đổi tên
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="button"
+                                                disabled={!!busy}
+                                                onClick={() =>
+                                                    void run(
+                                                        "category_archive",
+                                                        {
+                                                            id: category.id,
+                                                            archived: !category.archived,
+                                                        },
+                                                        category.id,
+                                                    )
+                                                }
+                                            >
+                                                {category.archived ? "Khôi phục" : "Lưu trữ"}
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </Modal>
+    );
+}
+
+function CategoryFilterOptions({ categories }: { categories: Category[] }) {
+    return (
+        <>
+            <option value="all">Tất cả hạng mục</option>
+            <option value="uncategorized">Chưa phân loại</option>
+            {[...categories]
+                .sort((a, b) => a.name.localeCompare(b.name, "vi"))
+                .map((category) => (
+                    <option value={category.id} key={category.id}>
+                        {category.name}
+                        {category.archived ? " (đã lưu trữ)" : ""}
+                    </option>
+                ))}
+        </>
+    );
 }
 
 function MonthPicker({
@@ -459,12 +625,16 @@ function ExpensesPage({
     onMonth,
     onSaved,
     initialFilter,
+    onCreateCategory,
+    onCategoryAction,
 }: {
     data: Data;
     month: string;
     onMonth: (m: string) => void;
-    onSaved: () => Promise<void>;
+    onSaved: () => Promise<unknown>;
     initialFilter?: string;
+    onCreateCategory: (name: string) => Promise<Category>;
+    onCategoryAction: (action: string, payload: unknown) => Promise<void>;
 }) {
     const [tab, setTab] = useState<"expenses" | "pending" | "schedules">(
         initialFilter === "pending" ? "pending" : "expenses",
@@ -475,8 +645,9 @@ function ExpensesPage({
     );
     const [tag, setTag] = useState("all");
     const [kind, setKind] = useState("all");
+    const [category, setCategory] = useState<CategoryFilter>("all");
     const [modal, setModal] = useState<
-        "new" | "edit" | "detail" | "refund" | "schedule" | null
+        "new" | "edit" | "detail" | "refund" | "schedule" | "categories" | null
     >(null);
     const [selected, setSelected] = useState<Expense>();
     const [schedule, setSchedule] = useState<Schedule>();
@@ -509,8 +680,9 @@ function ExpensesPage({
                 .filter((e) => channel === "all" || e.channel === channel)
                 .filter((e) => tag === "all" || e.tag === tag)
                 .filter((e) => kind === "all" || e.kind === kind)
+                .filter((e) => matchesCategory(e, category))
                 .sort((a, b) => b.date.localeCompare(a.date)),
-        [data, query, channel, tag, kind, tab],
+        [data, query, channel, tag, kind, category, tab],
     );
     const open = (e: Expense, mode: "detail" | "edit" = "detail") => {
         setSelected(e);
@@ -524,16 +696,24 @@ function ExpensesPage({
                 month={month}
                 onMonth={onMonth}
                 action={
-                    <button
-                        className="button primary"
-                        onClick={() => {
-                            setSelected(undefined);
-                            setModal("new");
-                        }}
-                    >
-                        <Plus size={18} />
-                        Thêm khoản chi
-                    </button>
+                    <div className="header-actions">
+                        <button
+                            className="button"
+                            onClick={() => setModal("categories")}
+                        >
+                            Quản lý hạng mục
+                        </button>
+                        <button
+                            className="button primary"
+                            onClick={() => {
+                                setSelected(undefined);
+                                setModal("new");
+                            }}
+                        >
+                            <Plus size={18} />
+                            Thêm khoản chi
+                        </button>
+                    </div>
                 }
             />
             <div className="tabs">
@@ -607,6 +787,13 @@ function ExpensesPage({
                             <option>Tools</option>
                             <option>Allocation</option>
                         </select>
+                        <select
+                            aria-label="Lọc khoản chi theo hạng mục"
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                        >
+                            <CategoryFilterOptions categories={data.categories} />
+                        </select>
                         <span className="filter-count">
                             <SlidersHorizontal size={16} />
                             {list.length} khoản
@@ -616,6 +803,7 @@ function ExpensesPage({
                         expenses={list}
                         refunds={data.refunds}
                         month={month}
+                        categories={data.categories}
                         onOpen={(e) => open(e)}
                     />
                 </>
@@ -623,6 +811,7 @@ function ExpensesPage({
                 <ScheduleList
                     schedules={data.schedules}
                     expenses={data.expenses}
+                    categories={data.categories}
                     onOpen={(s) => {
                         setSchedule(s);
                         setModal("schedule");
@@ -644,7 +833,12 @@ function ExpensesPage({
                     subtitle="Lưu ngay vào sổ chi tiêu của bạn."
                     onClose={() => setModal(null)}
                 >
-                    <ExpenseForm save={save} onClose={() => setModal(null)} />
+                    <ExpenseForm
+                        save={save}
+                        onClose={() => setModal(null)}
+                        categories={data.categories}
+                        onCreateCategory={onCreateCategory}
+                    />
                 </Modal>
             )}
             {modal === "edit" && selected && (
@@ -661,6 +855,8 @@ function ExpensesPage({
                         expense={selected}
                         save={save}
                         onClose={() => setModal(null)}
+                        categories={data.categories}
+                        onCreateCategory={onCreateCategory}
                     />
                 </Modal>
             )}
@@ -674,6 +870,7 @@ function ExpensesPage({
                         expense={selected}
                         refunds={data.refunds}
                         month={month}
+                        categories={data.categories}
                         onEdit={() => setModal("edit")}
                         onRefund={() => setModal("refund")}
                         onAction={async (action) => {
@@ -721,8 +918,17 @@ function ExpensesPage({
                         schedule={schedule}
                         save={save}
                         onClose={() => setModal(null)}
+                        categories={data.categories}
+                        onCreateCategory={onCreateCategory}
                     />
                 </Modal>
+            )}
+            {modal === "categories" && (
+                <CategoryManager
+                    categories={data.categories}
+                    onAction={onCategoryAction}
+                    onClose={() => setModal(null)}
+                />
             )}
         </>
     );
@@ -730,11 +936,13 @@ function ExpensesPage({
 function ScheduleList({
     schedules,
     expenses,
+    categories,
     onOpen,
     onNew,
 }: {
     schedules: Schedule[];
     expenses: Expense[];
+    categories: Category[];
     onOpen: (s: Schedule) => void;
     onNew: () => void;
 }) {
@@ -776,7 +984,8 @@ function ScheduleList({
                                     {s.frequency === "monthly"
                                         ? "mỗi tháng"
                                         : "mỗi năm"}{" "}
-                                    · {s.automatic ? "Tự tạo" : "Nhập tay"}
+                                    · {s.automatic ? "Tự tạo" : "Nhập tay"} ·{" "}
+                                    {categoryLabel(s, categories)}
                                 </small>
                             </span>
                             <span
@@ -808,9 +1017,12 @@ function ReportsPage({
     onMonth: (m: string) => void;
 }) {
     const [mode, setMode] = useState<"spent" | "allocated">("spent");
-    const [group, setGroup] = useState<"channel" | "tag" | "kind">("channel");
+    const [group, setGroup] = useState<
+        "channel" | "tag" | "kind" | "category"
+    >("channel");
     const [status, setStatus] = useState("all");
     const [query, setQuery] = useState("");
+    const [category, setCategory] = useState<CategoryFilter>("all");
     const [range, setRange] = useState({ from: month, to: month });
     useEffect(() => setRange({ from: month, to: month }), [month]);
     const { from, to } = range;
@@ -826,17 +1038,22 @@ function ReportsPage({
                 status === "all" ||
                 allocationPosition(e, data.refunds, to).status === status,
         );
-    const total = totals(filtered, data.refunds, from, to);
+    const categoryFiltered = filtered.filter((e) =>
+        matchesCategory(e, category),
+    );
+    const total = totals(categoryFiltered, data.refunds, from, to);
     const buckets = new Map<string, number>();
-    for (const e of filtered) {
+    for (const e of categoryFiltered) {
         const key =
             group === "channel"
                 ? CHANNELS[e.channel]
                 : group === "tag"
                   ? e.tag
-                  : e.kind === "once"
-                    ? "Phát sinh 1 lần"
-                    : "Tái diễn";
+                  : group === "kind"
+                    ? e.kind === "once"
+                        ? "Phát sinh 1 lần"
+                        : "Tái diễn"
+                    : categoryLabel(e, data.categories);
         const value =
             mode === "spent"
                 ? e.date.slice(0, 7) >= from && e.date.slice(0, 7) <= to
@@ -847,7 +1064,7 @@ function ReportsPage({
                       .reduce((s, [, v]) => s + v, 0);
         buckets.set(key, (buckets.get(key) || 0) + value);
     }
-    const ending = filtered.filter(
+    const ending = categoryFiltered.filter(
         (e) =>
             allocationPosition(e, data.refunds, to).end >= from &&
             allocationPosition(e, data.refunds, to).end <= to,
@@ -906,6 +1123,7 @@ function ReportsPage({
                     <option value="channel">Nhóm theo kênh</option>
                     <option value="tag">Nhóm theo nhãn</option>
                     <option value="kind">Nhóm theo phân loại</option>
+                    <option value="category">Nhóm theo hạng mục</option>
                 </select>
                 <select
                     value={status}
@@ -915,6 +1133,13 @@ function ReportsPage({
                     <option value="future">Chưa bắt đầu</option>
                     <option value="active">Đang phân bổ</option>
                     <option value="ended">Đã hết</option>
+                </select>
+                <select
+                    aria-label="Lọc báo cáo theo hạng mục"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                >
+                    <CategoryFilterOptions categories={data.categories} />
                 </select>
                 <input
                     placeholder="Tìm diễn giải…"
@@ -954,7 +1179,9 @@ function ReportsPage({
                                     ? "Kênh"
                                     : group === "tag"
                                       ? "Nhãn"
-                                      : "Phân loại"}
+                                      : group === "kind"
+                                        ? "Phân loại"
+                                        : "Hạng mục"}
                             </h2>
                         </div>
                     </div>
@@ -1028,7 +1255,7 @@ function BudgetsPage({
     data: Data;
     month: string;
     onMonth: (m: string) => void;
-    onSaved: () => Promise<void>;
+    onSaved: () => Promise<unknown>;
 }) {
     const formatBudget = (value: number | string) =>
         String(value)
@@ -1413,11 +1640,32 @@ export default function App() {
     const [logoutBusy, setLogoutBusy] = useState(false);
     const [authMode, setAuthMode] = useState<AuthMode>(recoveryFlow ? "reset" : "signin");
     const [passwordOpen, setPasswordOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        try {
+            return localStorage.getItem("thu-chi-sidebar-collapsed") === "true";
+        } catch {
+            return false;
+        }
+    });
     const [page, setPage] = useRoute();
     const [month, setMonth] = useState(today().slice(0, 7));
     const [initialFilter, setInitialFilter] = useState<string>();
-    async function refresh() {
-        setData(await loadData());
+    async function refresh(): Promise<Data> {
+        const next = await loadData();
+        setData(next);
+        return next;
+    }
+    async function createCategory(name: string): Promise<Category> {
+        const id = crypto.randomUUID();
+        await mutate("category_create", { id, name }, id);
+        const next = await refresh();
+        const created = next.categories.find((category) => category.id === id);
+        if (!created) throw new Error("Không tải được hạng mục vừa tạo.");
+        return created;
+    }
+    async function updateCategory(action: string, payload: unknown) {
+        await mutate(action, payload, crypto.randomUUID());
+        await refresh();
     }
     async function startSession(activeUser?: User | null) {
         try {
@@ -1481,6 +1729,16 @@ export default function App() {
         void start();
         return stop;
     }, []);
+    useEffect(() => {
+        try {
+            localStorage.setItem(
+                "thu-chi-sidebar-collapsed",
+                String(sidebarCollapsed),
+            );
+        } catch {
+            // Ignore unavailable storage; the in-memory preference still works.
+        }
+    }, [sidebarCollapsed]);
     if (!ready)
         return (
             <main className="loading-screen">
@@ -1513,7 +1771,7 @@ export default function App() {
         setPage("expenses");
     };
     return (
-        <div className="app-shell">
+        <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
             <aside className="sidebar">
                 <div className="brand">
                     <span className="brand-mark small">
@@ -1523,6 +1781,15 @@ export default function App() {
                         thu<span>chi</span>
                     </span>
                 </div>
+                <button
+                    className="sidebar-toggle icon-button"
+                    aria-label={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+                    aria-pressed={sidebarCollapsed}
+                    title={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+                    onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+                >
+                    {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                </button>
                 <nav>
                     {nav.map((n) => {
                         const Icon = n.icon;
@@ -1530,6 +1797,8 @@ export default function App() {
                             <button
                                 key={n.id}
                                 className={page === n.id ? "active" : ""}
+                                aria-label={n.label}
+                                title={n.label}
                                 onClick={() => setPage(n.id)}
                             >
                                 <Icon size={19} />
@@ -1540,16 +1809,25 @@ export default function App() {
                 </nav>
                 <div className="sidebar-bottom">
                     <div className="environment">
-                        <span className="live-dot" />{" "}
-                        {localTest ? "Local test" : "Supabase"}
+                        <span className="live-dot" />
+                        <span className="environment-label">
+                            {localTest ? "Local test" : "Supabase"}
+                        </span>
                     </div>
                     {user?.email && <small className="account-email">{user.email}</small>}
-                    <button className="sidebar-action" onClick={() => setPasswordOpen(true)}>
+                    <button
+                        className="sidebar-action"
+                        aria-label="Đặt mật khẩu"
+                        title="Đặt mật khẩu"
+                        onClick={() => setPasswordOpen(true)}
+                    >
                         <KeyRound size={17} />
                         <span>Đặt mật khẩu</span>
                     </button>
                     <button
                         className="sidebar-action"
+                        aria-label="Đăng xuất"
+                        title="Đăng xuất"
                         disabled={logoutBusy}
                         aria-busy={logoutBusy}
                         onClick={() => void handleLogout()}
@@ -1610,6 +1888,8 @@ export default function App() {
                         onMonth={setMonth}
                         onSaved={refresh}
                         initialFilter={initialFilter}
+                        onCreateCategory={createCategory}
+                        onCategoryAction={updateCategory}
                     />
                 )}{" "}
                 {page === "reports" && (
