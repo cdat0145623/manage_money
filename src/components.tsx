@@ -9,6 +9,7 @@ import {
     UsersRound,
     Repeat2,
     Check,
+    LoaderCircle,
     RotateCcw,
 } from "lucide-react";
 import {
@@ -95,6 +96,15 @@ export function Modal({
         </dialog>
     );
 }
+export function LoadingSpinner({ size = 18 }: { size?: number }) {
+    return (
+        <LoaderCircle
+            className="loading-spinner"
+            size={size}
+            aria-hidden="true"
+        />
+    );
+}
 export type Save = (
     action: string,
     payload: unknown,
@@ -137,8 +147,13 @@ export function FormEnd({
                     {error}
                 </p>
             )}
-            <button className="button primary" disabled={busy} type="submit">
-                <Check size={18} />
+            <button
+                className="button primary"
+                disabled={busy}
+                aria-busy={busy}
+                type="submit"
+            >
+                {busy ? <LoadingSpinner /> : <Check size={18} />}
                 {busy ? "Đang lưu…" : label}
             </button>
         </footer>
@@ -598,8 +613,17 @@ export function Detail({
     onRefund: () => void;
     onAction: (action: "skip" | "cancel") => Promise<void>;
 }) {
+    const [busy, setBusy] = useState(false);
     const position = allocationPosition(e, refunds, month),
         rs = refunds.filter((r) => r.expense_id === e.id);
+    async function runAction(action: "skip" | "cancel") {
+        setBusy(true);
+        try {
+            await onAction(action);
+        } finally {
+            setBusy(false);
+        }
+    }
     return (
         <div className="form-body">
             <div className="detail-amount">
@@ -672,7 +696,11 @@ export function Detail({
                 </section>
             )}
             <div className="detail-actions">
-                <button className="button primary" onClick={onEdit}>
+                <button
+                    className="button primary"
+                    disabled={busy}
+                    onClick={onEdit}
+                >
                     {e.status === "pending"
                         ? "Xác nhận đã chi"
                         : "Sửa khoản chi"}
@@ -681,6 +709,7 @@ export function Detail({
                     <button
                         className="button"
                         disabled={
+                            busy ||
                             rs.reduce((s, r) => s + r.amount, 0) >= e.amount
                         }
                         onClick={onRefund}
@@ -691,14 +720,18 @@ export function Detail({
                 )}
                 <button
                     className="button danger"
-                    disabled={rs.length > 0}
+                    disabled={busy || rs.length > 0}
+                    aria-busy={busy}
                     onClick={() =>
-                        onAction(e.status === "pending" ? "skip" : "cancel")
+                        void runAction(e.status === "pending" ? "skip" : "cancel")
                     }
                 >
-                    {e.status === "pending"
-                        ? "Bỏ qua kỳ này"
-                        : "Hủy khoản nhập nhầm"}
+                    {busy && <LoadingSpinner size={16} />}
+                    {busy
+                        ? "Đang xử lý…"
+                        : e.status === "pending"
+                          ? "Bỏ qua kỳ này"
+                          : "Hủy khoản nhập nhầm"}
                 </button>
             </div>
         </div>

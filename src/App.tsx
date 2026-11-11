@@ -58,6 +58,7 @@ import {
     ExpenseForm,
     ExpenseList,
     FormEnd,
+    LoadingSpinner,
     Modal,
     RefundForm,
     ScheduleForm,
@@ -1310,7 +1311,13 @@ function AuthScreen({
                     )}
                     {error && <p className="error" role="alert">{error}</p>}
                     {notice && <p className="auth-notice" role="status">{notice}</p>}
-                    <button className="button primary auth-submit" disabled={busy} type="submit">
+                    <button
+                        className="button primary auth-submit"
+                        disabled={busy}
+                        aria-busy={busy}
+                        type="submit"
+                    >
+                        {busy && <LoadingSpinner />}
                         {busy ? "Đang xử lý…" : mode === "signup" ? "Tạo tài khoản" : mode === "forgot" ? "Gửi liên kết" : mode === "reset" ? "Lưu mật khẩu" : "Đăng nhập"}
                     </button>
                 </form>
@@ -1320,15 +1327,19 @@ function AuthScreen({
                         <button
                             className="button auth-google"
                             type="button"
+                            disabled={busy}
+                            aria-busy={busy}
                             onClick={() => {
                                 setError("");
-                                void loginWithGoogle(appUrl()).catch((e) =>
-                                    setError((e as Error).message),
-                                );
+                                setBusy(true);
+                                void loginWithGoogle(appUrl()).catch((e) => {
+                                    setError((e as Error).message);
+                                    setBusy(false);
+                                });
                             }}
                         >
-                            <Globe2 size={18} />
-                            Tiếp tục với Google
+                            {busy ? <LoadingSpinner /> : <Globe2 size={18} />}
+                            {busy ? "Đang kết nối…" : "Tiếp tục với Google"}
                         </button>
                     </>
                 )}
@@ -1399,6 +1410,7 @@ export default function App() {
     const recoveryFlow = new URLSearchParams(window.location.search).get("auth") === "reset";
     const [authenticated, setAuthenticated] = useState(false);
     const [user, setUser] = useState<User | null>(null);
+    const [logoutBusy, setLogoutBusy] = useState(false);
     const [authMode, setAuthMode] = useState<AuthMode>(recoveryFlow ? "reset" : "signin");
     const [passwordOpen, setPasswordOpen] = useState(false);
     const [page, setPage] = useRoute();
@@ -1440,6 +1452,8 @@ export default function App() {
         }
     }
     async function handleLogout() {
+        setLogoutBusy(true);
+        setError("");
         try {
             await logout();
             setAuthenticated(false);
@@ -1448,6 +1462,8 @@ export default function App() {
             setAuthMode("signin");
         } catch (e) {
             setError((e as Error).message);
+        } finally {
+            setLogoutBusy(false);
         }
     }
     useEffect(() => {
@@ -1534,10 +1550,16 @@ export default function App() {
                     </button>
                     <button
                         className="sidebar-action"
+                        disabled={logoutBusy}
+                        aria-busy={logoutBusy}
                         onClick={() => void handleLogout()}
                     >
-                        <LogOut size={17} />
-                        <span>Đăng xuất</span>
+                        {logoutBusy ? (
+                            <LoadingSpinner size={17} />
+                        ) : (
+                            <LogOut size={17} />
+                        )}
+                        <span>{logoutBusy ? "Đang đăng xuất…" : "Đăng xuất"}</span>
                     </button>
                 </div>
             </aside>
@@ -1561,9 +1583,15 @@ export default function App() {
                     <button
                         className="icon-button mobile-logout"
                         aria-label="Đăng xuất"
+                        aria-busy={logoutBusy}
+                        disabled={logoutBusy}
                         onClick={() => void handleLogout()}
                     >
-                        <LogOut size={20} />
+                        {logoutBusy ? (
+                            <LoadingSpinner size={20} />
+                        ) : (
+                            <LogOut size={20} />
+                        )}
                     </button>
                 </div>
                 {page === "overview" && (
