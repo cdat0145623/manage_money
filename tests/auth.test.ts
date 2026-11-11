@@ -28,6 +28,11 @@ function fakeAuth(overrides: Partial<Record<string, unknown>> = {}) {
             calls.push(["signInWithOAuth", input]);
             return { data: { provider: "google", url: "https://example.test" }, error: null };
         },
+        linkIdentity: async (input: unknown) => {
+            calls.push(["linkIdentity", input]);
+            return { data: { provider: "google", url: "https://example.test" }, error: null };
+        },
+        getSession: async () => ({ data: { session: null }, error: null }),
         resetPasswordForEmail: async (email: string, options: unknown) => {
             calls.push(["resetPasswordForEmail", { email, options }]);
             return { data: {}, error: null };
@@ -82,6 +87,21 @@ test("Google, reset, update password, and sign out use Supabase auth", async () 
     ]);
 });
 
+test("Google upgrades an active anonymous session instead of switching owners", async () => {
+    const { auth, calls } = fakeAuth({
+        getSession: async () => ({
+            data: { session: { user: { is_anonymous: true } } },
+            error: null,
+        }),
+    });
+
+    await signInWithGoogle(auth, "https://app.test");
+
+    assert.deepEqual(calls, [
+        ["linkIdentity", { provider: "google", options: { redirectTo: "https://app.test" } }],
+    ]);
+});
+
 test("password validation explains mismatched or short passwords", () => {
     assert.equal(passwordValidationError("short", "short"), "Mật khẩu cần ít nhất 8 ký tự.");
     assert.equal(passwordValidationError("long-enough", "different"), "Mật khẩu xác nhận không khớp.");
@@ -109,6 +129,21 @@ test("auth errors are localized and actionable", async () => {
     await assert.rejects(
         updatePassword(expired.auth, "new-secret123"),
         /Liên kết khôi phục đã hết hạn hoặc không hợp lệ/,
+    );
+
+    const linking = fakeAuth({
+        getSession: async () => ({
+            data: { session: { user: { is_anonymous: true } } },
+            error: null,
+        }),
+        linkIdentity: async () => ({
+            data: { provider: null, url: null },
+            error: { message: "Manual linking is disabled" },
+        }),
+    });
+    await assert.rejects(
+        signInWithGoogle(linking.auth, "https://app.test"),
+        /Liên kết Google chưa được bật trong Supabase/,
     );
 });
 

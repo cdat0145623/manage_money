@@ -27,6 +27,10 @@ export function authErrorMessage(message: string): string {
         return "Email này đã được đăng ký. Hãy đăng nhập hoặc dùng Quên mật khẩu.";
     if (normalized.includes("auth session missing"))
         return "Liên kết khôi phục đã hết hạn hoặc không hợp lệ. Hãy yêu cầu liên kết mới.";
+    if (normalized.includes("manual linking"))
+        return "Liên kết Google chưa được bật trong Supabase. Hãy bật Manual Linking rồi thử lại.";
+    if (normalized.includes("identity") && normalized.includes("already"))
+        return "Tài khoản Google này đã được liên kết với tài khoản khác.";
     if (normalized.includes("password") && normalized.includes("different"))
         return "Mật khẩu mới phải khác mật khẩu hiện tại.";
     return "Không thể xử lý yêu cầu xác thực. Vui lòng thử lại.";
@@ -71,10 +75,17 @@ export async function signInWithGoogle(
     auth: AuthClient,
     redirectTo: string,
 ): Promise<void> {
-    const { error } = await auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo },
-    });
+    const { data, error: sessionError } = await auth.getSession();
+    check(sessionError);
+    const { error } = data.session?.user?.is_anonymous
+        ? await auth.linkIdentity({
+              provider: "google",
+              options: { redirectTo },
+          })
+        : await auth.signInWithOAuth({
+              provider: "google",
+              options: { redirectTo },
+          });
     check(error);
 }
 

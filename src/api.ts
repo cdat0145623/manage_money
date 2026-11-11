@@ -21,12 +21,12 @@ async function local(path:string,body?:unknown) {
 export async function getSession():Promise<boolean> {
  if(localTest)return (await local('session')).authenticated;
  if(!supabase)throw new Error('Chưa cấu hình Supabase.');
- const {data,error}=await supabase.auth.getSession();
- if(error)throw new Error(authErrorMessage(error.message));
- if(!hasPermanentSession(data.session)){
-  if(data.session)await supabase.auth.signOut();
-  return false;
- }
+	const {data,error}=await supabase.auth.getSession();
+	if(error)throw new Error(authErrorMessage(error.message));
+	if(!hasPermanentSession(data.session)){
+	  // Keep an anonymous session so the Google action can upgrade it with linkIdentity().
+	  return false;
+	}
  return true;
 }
 export async function getUser():Promise<User|null> {
